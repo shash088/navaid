@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NAV-AID: accessible maps for India</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#10243A;--teal:#0E7C86;--bad:#C8102E;--ok:#1B7F3B;--warn:#B25E00;--line:#D9E1E8;--shadow:0 2px 12px rgba(16,36,58,.28)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden}
+body{font-family:"Atkinson Hyperlegible",system-ui,Segoe UI,Arial,sans-serif;color:var(--ink);font-size:16px;line-height:1.4}
+:focus-visible{outline:3px solid #6A3DE8;outline-offset:2px}
+#map{position:fixed;inset:0;background:#E6EDF2}
+#mapNote{position:fixed;z-index:1004;left:50%;top:45%;transform:translate(-50%,-50%);width:min(440px,90vw);background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px;display:none}
+#mapNote code{background:#EEF3F7;padding:1px 6px;border-radius:5px}
+.qp{border:0;background:#F2F6F9;border-radius:10px;padding:11px 12px;text-align:left;font:inherit;font-size:14px}
+.qp:hover{background:#E1ECF2}
+#sheet.home{max-height:38vh}
+button{font:inherit;color:inherit;cursor:pointer}
+.box{background:#fff;border-radius:14px;box-shadow:var(--shadow)}
+/* top */
+#top{position:fixed;z-index:1000;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#top>*{pointer-events:auto}
+.sb{display:flex;align-items:center;gap:6px;padding:4px 6px 4px 14px;position:relative}
+.sb input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;padding:11px 4px;background:transparent;color:var(--ink)}
+.sb .ic{font-size:18px;width:22px;text-align:center;flex:none}
+.sb button{border:0;background:transparent;width:40px;height:40px;border-radius:50%;font-size:20px;flex:none}
+.sb button:hover{background:#EEF3F7}
+.sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;z-index:5}
+.sugg button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:12px 14px;border-bottom:1px solid var(--line)}
+.sugg button:hover,.sugg button:focus{background:#EEF3F7}
+.sugg small{display:block;color:#5B7288}
+#dirbar{padding:8px 8px 8px 10px;display:none;gap:2px;flex-direction:column}
+#dirbar .sb{box-shadow:none;border:2px solid var(--line);border-radius:10px;padding:0 4px 0 10px}
+#dirbar .sb+.sb{margin-top:6px}
+#dirHead{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:700}
+#dirHead button{border:0;background:#EEF3F7;border-radius:50%;width:36px;height:36px}
+body.dir #dirbar{display:flex}body.dir #sb1,body.dir #chips{display:none}
+body.nav #top{display:none}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:0;background:#fff;border-radius:99px;padding:8px 14px;box-shadow:var(--shadow);font-weight:700;font-size:14px;white-space:nowrap}
+.chip[aria-pressed=false]{opacity:.55;text-decoration:line-through}
+#zoomHint{align-self:flex-start;background:#FFE9A8;border-radius:8px;padding:5px 10px;font-size:13px;font-weight:700;display:none}
+/* sheet */
+#sheet{position:fixed;z-index:1001;left:0;right:0;bottom:0;max-height:55vh;overflow:auto;border-radius:18px 18px 0 0;padding:6px 16px calc(16px + env(safe-area-inset-bottom))}
+#sheet[hidden]{display:none}
+#grab{width:44px;height:5px;background:#C3CFDA;border-radius:9px;margin:4px auto 10px}
+#sheet h2{margin:0 0 2px;font-size:1.25rem}
+.sub{color:#546C82;font-size:14px}
+.btn{border:0;border-radius:99px;padding:12px 20px;font-weight:700;background:var(--teal);color:#fff}
+.btn.alt{background:#E6F2F3;color:var(--teal)}
+.btn.red{background:var(--bad)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.modes{display:flex;gap:6px;overflow-x:auto;margin:4px 0 8px;scrollbar-width:none}
+.mode{flex:none;border:2px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font-size:14px}
+.mode[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.rc{border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;cursor:pointer;display:block;width:100%;text-align:left;background:#fff}
+.rc[aria-pressed=true]{border-color:var(--teal);background:#EAF6F7}
+.rc b{font-size:1.1rem}.rc .sc{float:right;font-weight:700;color:var(--teal);font-size:1.2rem}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--teal);color:#fff;margin-right:4px}.tag.g{background:#6B7F92}
+ul.l{list-style:none;margin:6px 0 0;padding:0}
+ul.l li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.ct{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:8px}
+.ct div{background:#F2F6F9;border-radius:10px;padding:8px 10px;font-size:14px}
+.ct b{font-size:1.2rem;margin-right:4px}
+.warn{background:#FFF3D6;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px}
+/* fabs */
+#fabs{position:fixed;z-index:1002;right:12px;bottom:12px;display:flex;flex-direction:column;gap:10px}
+.fab{width:50px;height:50px;border-radius:50%;border:0;background:#fff;box-shadow:var(--shadow);font-size:22px}
+.fab.on{background:var(--bad);color:#fff}
+.fab.sos{background:var(--bad);color:#fff;font-size:21px}
+/* nav banner */
+#nb{position:fixed;z-index:1003;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));background:var(--ink);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);display:none}
+body.nav #nb{display:block}
+#nb .big{font-size:1.5rem;font-weight:700;line-height:1.2}
+#nb .al{margin-top:8px;background:#FFE9EC;color:#6a0016;border-radius:8px;padding:8px 10px;font-weight:700;display:none}
+.mk{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;border:3px solid #fff;box-shadow:0 0 0 1.5px #000;color:#fff}
+.me{width:20px;height:20px;border-radius:50%;background:#2563EB;border:4px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.4)}
+.leaflet-control-zoom{display:none}
+.leaflet-popup-content button{margin:3px 2px}
+.err{color:var(--bad);font-weight:700}
+.chat-log{display:grid;gap:7px;max-height:26vh;overflow:auto;padding:8px;background:#F2F6F9;border-radius:10px}.chat-msg{padding:8px 10px;border-radius:10px;font-size:14px;max-width:92%}.chat-msg.bot{background:#fff;justify-self:start}.chat-msg.user{background:#DCEFF0;justify-self:end}.chat-choices{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chat-choices button{border:1px solid var(--line);border-radius:99px;background:#fff;padding:7px 10px;font-weight:700;font-size:13px}.chat-compose{display:flex;gap:6px}.chat-compose input{min-width:0;flex:1;border:1px solid var(--line);border-radius:9px;padding:9px}
+.map-loading{position:fixed;z-index:999;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;background:#fff;border-radius:99px;padding:11px 16px;box-shadow:var(--shadow);font-weight:700;font-size:14px;transition:opacity .3s,transform .3s}.map-loading.done{opacity:0;transform:translate(-50%,-46%);pointer-events:none}.spinner{width:18px;height:18px;border:3px solid #C9D8E3;border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}.loading::before{content:"";display:inline-block;vertical-align:middle;width:14px;height:14px;margin-right:7px;border:2px solid #B25E00;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}.sugg:not([hidden]){animation:dropIn .18s ease-out}.mk{animation:markerIn .28s cubic-bezier(.2,.8,.25,1.2) both}.chat-msg{animation:messageIn .18s ease-out both}.fab,.btn,.chip,.mode,.rc{transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease}.fab:hover,.btn:hover,.chip:hover,.mode:hover,.rc:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(16,36,58,.2)}#sheet:not([hidden]){animation:sheetIn .22s ease-out both}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes dropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}@keyframes markerIn{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}@keyframes messageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}@keyframes sheetIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.sr{position:absolute;left:-9999px}
+@media(min-width:820px){
+ #sheet.home{bottom:auto;max-height:calc(100vh - 92px)}
+ #top{width:410px;right:auto}
+ #chips{position:fixed;left:434px;top:calc(12px + env(safe-area-inset-top));right:80px;padding:0}
+ body.dir #chips{display:none}
+ #sheet{left:12px;right:auto;width:410px;bottom:12px;top:80px;max-height:none;border-radius:14px;padding-top:12px}
+ body.dir #sheet{top:200px}
+ #grab{display:none}
+ #nb{width:410px;right:auto}
+ .leaflet-control-zoom{display:block}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Accessibility map"></div>
+<div id="mapLoading" class="map-loading"><span class="spinner" aria-hidden="true"></span>Loading map</div>
+
+<div id="top">
+ <div class="box sb" id="sb1">
+  <span class="ic" aria-hidden="true">🔍</span>
+  <input id="q" type="search" placeholder="Search any place" aria-label="Search a place" autocomplete="off">
+  <button id="qx" aria-label="Clear" hidden>✕</button>
+  <button id="qd" aria-label="Directions" title="Directions">➤</button>
+  <div class="sugg" id="s1" hidden></div>
+ </div>
+ <div class="box" id="dirbar">
+  <div id="dirHead"><button id="dirClose" aria-label="Close directions">←</button>Accessible directions</div>
+  <div class="sb"><span class="ic" aria-hidden="true">🔵</span><input id="from" placeholder="Start (or tap ◎)" aria-label="Start" autocomplete="off"><button id="fromLoc" aria-label="Use my location">◎</button><div class="sugg" id="s2" hidden></div></div>
+  <div class="sb"><span class="ic" aria-hidden="true">📍</span><input id="to" placeholder="Destination" aria-label="Destination" autocomplete="off"><button id="swap" aria-label="Swap">⇅</button><div class="sugg" id="s3" hidden></div></div>
+ </div>
+ <div id="chips" role="group" aria-label="Show on map"></div>
+ <div id="zoomHint">Zoom in to see hazards</div>
+</div>
+
+<div id="mapNote" role="alert"><b>The map tiles are not loading.</b><p id="mapWhy"></p></div>
+
+<div id="nb" role="status" aria-live="assertive"><div class="big" id="nbT"></div><div class="al" id="nbA"></div></div>
+<div id="fabs">
+ <button class="fab" id="repBtn" aria-label="Report a hazard" title="Report a hazard">🕳</button>
+ <button class="fab" id="chatBtn" aria-label="Open support chat" title="Support chat">💬</button>
+ <button class="fab sos" id="sosBtn" aria-label="Emergency help" title="Emergency help">🆘</button>
+ <button class="fab" id="locBtn" aria-label="My location" title="My location">◎</button>
+</div>
+<div class="box" id="sheet" hidden><div id="grab"></div><div id="sb"></div></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>window.L||document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"><\/script>')</script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+
+/* ---------- categories (everything shown by default) ---------- */
+const CATS={
+ steps:{i:'🪜',c:'#C8102E',t:'Steps',g:'Steps'},kerb:{i:'⬆',c:'#B25E00',t:'Raised kerb',g:'Kerbs'},
+ crossP:{i:'🚸',c:'#B25E00',t:'Crossing, no signal',g:'Crossings'},crossS:{i:'🚦',c:'#1B7F3B',t:'Signal crossing',g:'Crossings'},
+ elev:{i:'🛗',c:'#1B7F3B',t:'Elevator',g:'Ramps and lifts'},ramp:{i:'♿',c:'#1B7F3B',t:'Ramp or dropped kerb',g:'Ramps and lifts'},
+ surf:{i:'🪨',c:'#B25E00',t:'Rough surface',g:'Rough ground'},narrow:{i:'↔',c:'#B25E00',t:'Narrow path',g:'Narrow and barriers'},
+ steep:{i:'⛰',c:'#C8102E',t:'Steep slope',g:'Slopes'},barrier:{i:'🚧',c:'#B25E00',t:'Barrier',g:'Narrow and barriers'},
+ calm:{i:'〰',c:'#B25E00',t:'Speed bump',g:'Narrow and barriers'},wcNo:{i:'🚫',c:'#C8102E',t:'Not wheelchair accessible',g:'Steps'},
+ report:{i:'🕳',c:'#C8102E',t:'Reported hazard',g:'Reports'},toilet:{i:'🚻',c:'#0E7C86',t:'Toilets',g:'Facilities'},
+ transit:{i:'🚇',c:'#0E7C86',t:'Station or stop',g:'Facilities'},hazard:{i:'⚠',c:'#C8102E',t:'Marked hazard',g:'Reports'}
+};
+const GOOD=new Set(['elev','ramp','crossS','toilet','transit']);
+const GROUPS=[['Steps','🪜'],['Ramps and lifts','♿'],['Crossings','🚦'],['Rough ground','🪨'],['Narrow and barriers','↔'],['Slopes','⛰'],['Kerbs','⬆'],['Reports','🕳'],['Facilities','🚻']];
+const hiddenG=new Set();
+
+/* ---------- modes: nothing to configure, everything on by default ---------- */
+const MODES={
+ all:{n:'All needs',p:{noStairs:1,noKerb:1,noUnpaved:1,noNarrow:1,signals:1,tactile:1,maxSlope:5,speed:3.2,maxKm:3}},
+ wheel:{n:'Wheelchair',p:{noStairs:1,noKerb:1,noUnpaved:1,noNarrow:1,signals:0,tactile:0,maxSlope:5,speed:3.2,maxKm:3}},
+ walk:{n:'Walking aid',p:{noStairs:1,noKerb:0,noUnpaved:1,noNarrow:0,signals:0,tactile:0,maxSlope:6,speed:2.8,maxKm:2}},
+ blind:{n:'Blind or low vision',p:{noStairs:0,noKerb:0,noUnpaved:0,noNarrow:0,signals:1,tactile:1,maxSlope:8,speed:3.5,maxKm:4}},
+ hearing:{n:'Deaf / hard of hearing',p:{noStairs:0,noKerb:0,noUnpaved:0,noNarrow:0,signals:1,tactile:0,maxSlope:8,speed:3.2,maxKm:3}},
+ sensory:{n:'Cognitive / sensory needs',p:{noStairs:1,noKerb:1,noUnpaved:1,noNarrow:1,signals:1,tactile:0,maxSlope:5,speed:2.6,maxKm:2}},
+ stamina:{n:'Limited stamina / fatigue',p:{noStairs:1,noKerb:1,noUnpaved:1,noNarrow:0,signals:0,tactile:0,maxSlope:4,speed:2,maxKm:1.5}},
+ temporary:{n:'Temporary injury',p:{noStairs:1,noKerb:1,noUnpaved:1,noNarrow:0,signals:0,tactile:0,maxSlope:5,speed:2.5,maxKm:2}}
+};
+let mode=store.get('navaid_mode','all');if(!MODES[mode])mode='all';
+let P=MODES[mode].p;
+
+/* ---------- map ---------- */
+const v0=store.get('navaid_view2',{c:[28.70,77.35],z:11});
+const map=L.map('map',{zoomControl:true,tap:true,minZoom:5,maxBounds:[[5,66],[38,99]],maxBoundsViscosity:.7}).setView(v0.c,v0.z);
+L.control.zoom({position:'bottomleft'}).addTo(map);
+const TILES=[
+ ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4z72_1_cc4cdc29b28ec2a7dbb1228f',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}],
+ ['https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}],
+ ['https://a.tile.openstreetmap.de/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}]];
+let tl=null,tErr=0,tOk=0;
+function useTiles(i){
+ if(tl)map.removeLayer(tl);tErr=0;
+ tl=L.tileLayer(TILES[i][0],TILES[i][1]).addTo(map);
+ tl.on('tileload',()=>{tOk++;$('#mapLoading').classList.add('done');$('#mapNote').style.display='none'});
+ tl.on('tileerror',()=>{if(++tErr>=4&&!tOk){if(i+1<TILES.length)useTiles(i+1);else showNote()}});
+}
+useTiles(0);
+function showNote(){
+ $('#mapLoading').classList.add('done');
+ const framed=window.top!==window.self,file=location.protocol==='file:';
+ $('#mapWhy').innerHTML=framed?'This page is running inside a preview window, which blocks maps and map data. <b>Download the file and open it in Chrome, Edge or Safari in its own tab.</b>'
+  :!navigator.onLine?'Your device looks offline. Connect to the internet and reload.'
+  :'A network, school or office filter, or an ad blocker, may be blocking <code>cartocdn.com</code> and <code>openstreetmap.org</code>. Try another network or turn the blocker off for this page.'+(file?' If it still fails, run <code>python -m http.server 8000</code> in the file’s folder and visit <code>localhost:8000/nav-aid-v3.html</code>.':'');
+ $('#mapNote').style.display='block';
+}
+setTimeout(()=>{if(!tOk)showNote()},9000);
+const G={route:L.layerGroup().addTo(map),all:L.layerGroup().addTo(map),pins:L.layerGroup().addTo(map),rep:L.layerGroup().addTo(map)};
+let meMarker=null;
+const S={from:null,to:null,place:null,routes:[],sel:0,viewEls:[],fetched:null,busy:false,nav:null,reporting:false,routeMode:false};
+const icon=c=>L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,15],html:`<div class="mk" style="background:${CATS[c].c}">${CATS[c].i}</div>`});
+const pin=(ll,t,col)=>L.marker(ll,{icon:L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:`<div class="mk" style="background:${col};width:34px;height:34px;font-weight:700">${t}</div>`})});
+
+/* ---------- helpers ---------- */
+const R=6371000,rad=d=>d*Math.PI/180;
+function dist(a,b){const x=rad(b[1]-a[1])*Math.cos(rad((a[0]+b[0])/2)),y=rad(b[0]-a[0]);return Math.hypot(x,y)*R}
+function densify(c,step=8){const out=[c[0]];for(let i=1;i<c.length;i++){const d=dist(c[i-1],c[i]),n=Math.max(1,Math.ceil(d/step));for(let k=1;k<=n;k++)out.push([c[i-1][0]+(c[i][0]-c[i-1][0])*k/n,c[i-1][1]+(c[i][1]-c[i-1][1])*k/n])}return out}
+const cell=p=>[Math.floor(p[0]/0.0003),Math.floor(p[1]/0.0003)];
+const km=m=>m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';
+const mins=m=>{const t=Math.max(1,Math.round(m/1000/P.speed*60));return t>=60?Math.floor(t/60)+' h '+t%60+' min':t+' min'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const short=n=>n.split(',').slice(0,2).join(',');
+function toast(t){$('#live').textContent=t}
+
+/* ---------- search with suggestions ---------- */
+async function geocodeMany(q){
+ const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0&countrycodes=in&viewbox=77.0,30.4,84.7,23.8&q='+encodeURIComponent(q));
+ return (await r.json()).map(j=>({ll:[+j.lat,+j.lon],name:j.display_name}));
+}
+function suggest(inp,box,cb){
+ let t,last=0;
+ const run=async(pickFirst)=>{
+  const q=inp.value.trim();if(q.length<3)return;const id=++last;
+  try{const res=await geocodeMany(q);if(id!==last)return;
+   if(!res.length){box.innerHTML='<button disabled>No place found</button>';box.hidden=false;return}
+   if(pickFirst){box.hidden=true;cb(res[0]);return}
+   box.innerHTML=res.map((r,i)=>`<button data-i="${i}">${esc(r.name.split(',')[0])}<small>${esc(r.name.split(',').slice(1,4).join(','))}</small></button>`).join('');
+   box.hidden=false;[...box.children].forEach(b=>b.onclick=()=>{box.hidden=true;inp.blur();cb(res[+b.dataset.i])});
+  }catch{box.innerHTML='<button disabled>Search is unavailable. Check your connection.</button>';box.hidden=false}
+ };
+ inp.addEventListener('input',()=>{clearTimeout(t);box.hidden=true;t=setTimeout(()=>run(false),550);if(inp===$('#q')){$('#qx').hidden=!inp.value;if(!$('#sheet').hidden)closeSheet()}});
+ inp.addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(t);run(true)}});
+ document.addEventListener('click',e=>{if(!box.parentElement.contains(e.target))box.hidden=true});
+}
+suggest($('#q'),$('#s1'),p=>{$('#q').value=p.name.split(',')[0];showPlace(p)});
+suggest($('#from'),$('#s2'),p=>{S.from=p;$('#from').value=p.name.split(',')[0];maybeRoute()});
+suggest($('#to'),$('#s3'),p=>{S.to=p;$('#to').value=p.name.split(',')[0];maybeRoute()});
+$('#qx').onclick=()=>{$('#q').value='';$('#qx').hidden=true;showHome();G.pins.clearLayers()};
+
+/* ---------- sheet ---------- */
+function openSheet(html){$('#sheet').classList.remove('home');$('#sb').innerHTML=html;$('#sheet').hidden=false;$('#sheet').scrollTop=0}
+function openSOSPanel(){
+ openSheet(`<h2>Emergency help</h2><p class="sub">In India, call 112 for emergency police, fire or medical assistance. NAV-AID will not call or send your location unless you choose an action below.</p><div class="btns"><a class="btn red" href="tel:112" style="text-decoration:none">Call 112</a><button class="btn alt" id="shareSOS">Share my current location</button></div><p class="sub">Location sharing asks for your location only after you tap Share. You choose who receives it.</p><a href="https://112.gov.in/" target="_blank" rel="noopener">Official India emergency help information ↗</a>`);
+ $('#shareSOS').onclick=()=>locate(p=>shareSOS(p[0],p[1]),()=>{const p=map.getCenter();shareSOS(p.lat,p.lng,true)});
+}
+async function shareSOS(lat,lon,approx=false){
+ const link=`https://www.google.com/maps/search/?api=1&query=${lat}%2C${lon}`,msg=`I need assistance. ${approx?'Approximate map location':'My current location'}: ${link}`;
+ if(navigator.share){try{await navigator.share({title:'NAV-AID assistance request',text:msg,url:link});return}catch(e){if(e.name==='AbortError')return}}
+ try{await navigator.clipboard.writeText(msg);toast('Location message copied. Choose a trusted contact to send it to.')}catch{toast('Location link: '+link)}
+}
+function openSupportChat(){
+ openSheet(`<h2>NAV-AID quick support</h2><p class="sub">Automated map help, not a live person. For urgent danger, open SOS.</p><div class="chat-log" id="chatLog" role="log" aria-live="polite"><div class="chat-msg bot">Hi. What do you need help with?</div></div><div class="chat-choices"><button data-help="route">Accessible route</button><button data-help="details">Nearby access details</button><button data-help="toilet">Accessible toilets</button><button data-help="sos">Emergency help</button></div><div class="chat-compose"><input id="chatInput" placeholder="Ask NAV-AID quick help" aria-label="Ask NAV-AID quick help"><button class="btn" id="chatSend">Send</button></div>`);
+ const log=$('#chatLog'),input=$('#chatInput');
+ const add=(text,who='bot')=>{const m=document.createElement('div');m.className='chat-msg '+who;m.textContent=text;log.appendChild(m);log.scrollTop=log.scrollHeight};
+ const reply=q=>{const v=q.toLowerCase();if(v.includes('sos')||v.includes('emergency')||v.includes('danger')){openSOSPanel();return}if(v.includes('route')||v.includes('wheel')||v.includes('step-free')){add('Tap Directions in the search bar, choose your start and destination, then select the profile that fits. Route quality depends on mapped access details.');return}if(v.includes('toilet')||v.includes('restroom')){const n=S.viewEls.filter(h=>h.cat==='toilet').length;add(n?`${n} toilet feature${n===1?'':'s'} mapped in the current area. Look for the restroom symbols on the map.`:'No toilets are tagged in the current map view. Try zooming in or search nearby; missing tags do not confirm availability.');return}if(v.includes('detail')||v.includes('hazard')||v.includes('map')){const n=S.viewEls.length;add(n?`${n} mapped access details are in the current view. Use the symbol chips at the top to show or hide categories.`:'No access details have loaded in this view yet. Zoom in and tap Refresh area.');return}add('I can help with routes, map symbols, toilets, or emergency options. This quick-help panel is not monitored by a person.');};
+ const send=()=>{const q=input.value.trim();if(!q)return;add(q,'user');input.value='';reply(q)};
+ $('#chatSend').onclick=send;input.onkeydown=e=>{if(e.key==='Enter')send()};$$('[data-help]').forEach(b=>b.onclick=()=>{add(b.textContent,'user');reply(b.dataset.help)});$('#chatLog').querySelectorAll('.chat-msg.bot').length;
+}
+const QUICK=[['SRM Institute, Ghaziabad','🎓'],['New Delhi Railway Station','🚉'],['India Gate, New Delhi','🏛'],['Connaught Place, New Delhi','🛍'],['AIIMS, New Delhi','🏥'],['Noida Sector 18','🏙'],['Lucknow Charbagh Railway Station','🚉'],['Taj Mahal, Agra','🕌'],['Varanasi Ghats','🛕'],['Prayagraj Sangam','🌊']];
+function showHome(){
+ S.place=null;S.routeMode=false;
+ openSheet(`<h2>Explore Delhi and Uttar Pradesh</h2><p class="sub">Search for any place in India, or tap one below. Zoom in to see steps, slopes, crossings and hazards.</p><p class="sub"><b>Route profiles:</b> wheelchair, walking aid, blind/low vision, deaf/hard of hearing, sensory needs, limited stamina, and temporary injury.</p><div class="btns"><button class="btn alt" id="homeHelp">💬 Support chat</button><button class="btn red" id="homeSOS">🆘 Emergency SOS</button></div><div class="ct">${QUICK.map(([q,i])=>`<button class="qp" data-q="${esc(q)}">${i} ${esc(q.split(',')[0])}</button>`).join('')}</div>`);
+ $('#sheet').classList.add('home');
+ $('#homeHelp').onclick=openSupportChat;$('#homeSOS').onclick=openSOSPanel;
+ $$('.qp').forEach(b=>b.onclick=async()=>{
+  try{const r=await geocodeMany(b.dataset.q);if(!r.length)return;$('#q').value=r[0].name.split(',')[0];$('#qx').hidden=false;showPlace(r[0])}catch{toast('Search is unavailable. Check your connection.')}
+ });
+}
+function closeSheet(){$('#sheet').hidden=true;$('#sb').innerHTML=''}
+$('#grab').onclick=()=>{const s=$('#sheet');s.style.maxHeight=s.style.maxHeight?'':'30vh'};
+new ResizeObserver(()=>{$('#fabs').style.bottom=(innerWidth<820&&!$('#sheet').hidden?$('#sheet').offsetHeight+12:12)+'px'}).observe($('#sheet'));
+addEventListener('resize',()=>$('#sheet').dispatchEvent(new Event('x')));
+
+/* ---------- Overpass: show everything ---------- */
+function query(A,extra){return `[out:json][timeout:18];(
+way${A}["highway"="steps"];node${A}["highway"="elevator"];node${A}["elevator"="yes"];
+way${A}["ramp"="yes"];way${A}["ramp:wheelchair"="yes"];
+node${A}["barrier"~"^(bollard|gate|stile|cycle_barrier|chain|lift_gate|kerb)$"];
+node${A}["highway"="crossing"];way${A}["highway"]["wheelchair"~"^(no|limited)$"];
+way${A}["highway"]["incline"];
+way${A}["highway"]["surface"~"^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$"];
+way${A}["highway"]["smoothness"~"^(bad|very_bad|horrible|very_horrible|impassable)$"];
+way${A}["highway"~"^(footway|path|pedestrian)$"]["width"];
+node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];node${A}["hazard"];${extra||''}
+);out geom tags;`}
+const EXTRA=A=>`node${A}["amenity"="toilets"];node${A}["railway"~"^(station|subway_entrance)$"];node${A}["highway"="bus_stop"];`;
+let activeOverpass=null;
+async function overpass(q){
+ let last;
+ for(const u of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);activeOverpass=controller;
+  try{const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:controller.signal});if(!r.ok)throw new Error('Map data server busy ('+r.status+')');const data=await r.json();if(data.remark)throw new Error(data.remark);return data.elements||[]}
+  catch(e){last=e;if(controller.signal.aborted)break}
+  finally{clearTimeout(timer);if(activeOverpass===controller)activeOverpass=null}
+ }
+ throw last||new Error('Map data request timed out');
+}function classify(e){
+ const t=e.tags||{};
+ const pts=e.type==='node'?[[e.lat,e.lon]]:(e.geometry||[]).map(g=>[g.lat,g.lon]);
+ if(!pts.length)return null;
+ let cat=null,m='',slope;
+ if(t.highway==='steps'){
+  if(t['ramp:wheelchair']==='yes'||t.ramp==='yes'){cat='ramp';m='Steps with a ramp alongside'}
+  else{cat='steps';m='Steps'+(t.step_count?' ('+t.step_count+')':'')+(t.handrail==='no'?', no handrail':'')}
+ }else if(t.highway==='elevator'||t.elevator==='yes'){cat='elev';m='Elevator'}
+ else if(t.ramp==='yes'||t['ramp:wheelchair']==='yes'){cat='ramp';m='Ramp'}
+ else if(t.amenity==='toilets'){cat='toilet';m='Toilets, wheelchair: '+(t.wheelchair||'unknown')}
+ else if(t.railway||t.highway==='bus_stop'){cat='transit';m=(t.name||'Station or stop')+', wheelchair: '+(t.wheelchair||'unknown')}
+ else if(t.hazard){cat='hazard';m='Hazard: '+t.hazard}
+ else if(t.barrier){
+  if(t.barrier==='kerb'){if(t.kerb==='raised'){cat='kerb';m='Raised kerb'}else{cat='ramp';m='Dropped kerb'}}
+  else{cat='barrier';m='Barrier: '+t.barrier}
+ }else if(t.highway==='crossing'){
+  const sig=/signals/.test(t.crossing||'')||t.traffic_signals==='yes'||t.crossing_ref==='pelican';
+  cat=sig?'crossS':'crossP';m=(sig?'Signal crossing':'Crossing without signals')+(t.tactile_paving==='yes'?', tactile paving':', no tactile paving mapped')+(t.kerb==='raised'?', raised kerb':'');
+ }else if(/^(no|limited)$/.test(t.wheelchair||'')){cat='wcNo';m='Wheelchair access: '+t.wheelchair}
+ else if(t.incline){const v=parseFloat(t.incline);if(/%/.test(t.incline)&&Math.abs(v)>=3){cat='steep';m='Slope '+t.incline;slope=Math.abs(v)}else return null}
+ else if((t.surface&&/^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$/.test(t.surface))||t.smoothness){cat='surf';m='Surface: '+(t.surface||'')+(t.smoothness?' ('+t.smoothness+' smoothness)':'')}
+ else if(t.width&&parseFloat(t.width)<1.2){cat='narrow';m='Narrow path, '+t.width+' m'}
+ else if(t.traffic_calming){cat='calm';m='Speed bump'}
+ else return null;
+ return {cat,m,pts,line:e.type==='way',tags:t,slope};
+}
+function costOf(h){
+ const t=h.tags;
+ switch(h.cat){
+  case 'steps':return P.noStairs?3000:350;
+  case 'kerb':return P.noKerb?180:25;
+  case 'crossP':return (P.signals?260:45)+(P.tactile&&t.tactile_paving!=='yes'?90:0)+(P.noKerb&&t.kerb==='raised'?150:0);
+  case 'crossS':return (P.tactile&&t.tactile_paving!=='yes'?50:0)+(P.noKerb&&t.kerb==='raised'?120:0);
+  case 'surf':return /very_bad|horrible|impassable/.test(t.smoothness||'')?1000:(P.noUnpaved?500:80);
+  case 'narrow':return P.noNarrow?400:60;
+  case 'steep':return h.slope>P.maxSlope?600*h.slope/P.maxSlope:60;
+  case 'barrier':return t.barrier==='stile'?3000:t.barrier==='bollard'?(P.tactile?150:60):(P.noNarrow?250:50);
+  case 'calm':return P.noKerb?120:30;
+  case 'wcNo':return mode==='wheel'||mode==='all'?1500:200;
+  case 'report':return 450;
+  case 'hazard':return 300;
+  default:return 0;
+ }
+}
+const reportsAsEls=()=>store.get('navaid_reports',[]).map(r=>({cat:'report',m:'Reported: '+r.type,pts:[[r.lat,r.lon]],line:false,tags:{}}));
+
+/* viewport layer */
+function drawView(){
+ G.all.clearLayers();
+ let n=0;
+ for(const h of S.viewEls){
+  if(hiddenG.has(CATS[h.cat].g)||n>700)continue;n++;
+  if(h.line)L.polyline(h.pts,{color:CATS[h.cat].c,weight:5,opacity:.85,dashArray:h.cat==='surf'?'3 7':null,interactive:false}).addTo(G.all);
+  L.marker(h.pts[Math.floor(h.pts.length/2)],{icon:icon(h.cat),title:h.m}).addTo(G.all).bindPopup(`<b>${CATS[h.cat].t}</b><br>${esc(h.m)}`);
+ }
+}
+let vt,viewSeq=0;
+async function loadView(force){
+ if(S.routeMode)return;
+ const hint=$('#zoomHint');
+ if(map.getZoom()<15){hint.classList.remove('loading');hint.textContent='Zoom in closer to see mapped access symbols';hint.style.display='block';return}
+ hint.style.display='none';const b=map.getBounds();
+ if(!force&&S.fetched&&S.fetched.contains(b))return;
+ if(activeOverpass&&!force)return;
+ if(activeOverpass&&force)activeOverpass.abort();
+ const seq=++viewSeq,pb=b.pad(.25),box=`(${pb.getSouth().toFixed(5)},${pb.getWest().toFixed(5)},${pb.getNorth().toFixed(5)},${pb.getEast().toFixed(5)})`;
+ hint.textContent='Loading map symbols…';hint.classList.add('loading');hint.style.display='block';
+ try{
+  const els=await overpass(query(box,EXTRA(box)));
+  if(seq!==viewSeq)return;
+  S.viewEls=els.map(classify).filter(Boolean).concat(reportsAsEls());S.fetched=pb;drawView();hint.classList.remove('loading');hint.style.display='none';
+  if(S.place)placeSummary();
+ }catch(e){
+  if(seq!==viewSeq)return;
+  hint.classList.remove('loading');hint.textContent='Could not load map symbols: '+(e?.message||'network error')+'. Tap Refresh area to retry.';hint.style.display='block';
+  const brief=$('#brief');if(S.place&&brief)brief.innerHTML='<p class="sub">Map symbols could not load. Check your connection and tap Refresh area to try again.</p>';
+ }
+}
+map.on('moveend',()=>{store.set('navaid_view2',{c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()});clearTimeout(vt);vt=setTimeout(()=>loadView(false),700)});$('#chips').innerHTML=GROUPS.map(([g,i])=>`<button class="chip" aria-pressed="true" data-g="${g}">${i} ${g}</button>`).join('');
+$$('.chip').forEach(c=>c.onclick=()=>{const g=c.dataset.g;if(hiddenG.has(g)){hiddenG.delete(g);c.setAttribute('aria-pressed','true')}else{hiddenG.add(g);c.setAttribute('aria-pressed','false')}drawView()});
+
+/* ---------- place sheet ---------- */
+function showPlace(p){
+ S.place=p;S.routeMode=false;G.route.clearLayers();G.all.clearLayers();S.routes=[];S.viewEls=[];S.fetched=null;viewSeq++;if(activeOverpass)activeOverpass.abort();
+ G.pins.clearLayers();pin(p.ll,'📍','#C8102E').addTo(G.pins);
+ map.setView(p.ll,17);
+ placeShell();setTimeout(()=>loadView(true),300);
+}
+function placeShell(){
+ const p=S.place;
+ openSheet(`<h2>${esc(p.name.split(',')[0])}</h2><div class="sub">${esc(p.name.split(',').slice(1,4).join(','))}</div>
+ <div class="btns"><button class="btn" id="goDir">Directions</button><button class="btn alt" id="goBrief">Refresh area</button></div>
+ <div id="brief"><p class="sub">Scanning the area for steps, slopes, crossings, ramps and hazards…</p></div>`);
+ $('#goDir').onclick=()=>startDirections(p);
+ $('#goBrief').onclick=()=>loadView(true);
+ placeSummary();
+}
+function placeSummary(){
+ const el=$('#brief');if(!el||!S.place)return;
+ const near=S.viewEls.filter(h=>dist(h.pts[0],S.place.ll)<450);
+ if(!S.fetched){return}
+ const c={};near.forEach(h=>c[h.cat]=(c[h.cat]||0)+1);
+ const n=k=>c[k]||0;
+ const items=Object.entries(c).sort((a,b)=>b[1]-a[1]);
+ el.innerHTML=`<h3 style="margin:8px 0 2px">Within 450 m</h3>`+
+ (items.length?`<div class="ct">${items.map(([k,v])=>`<div><b>${v}</b>${CATS[k].i} ${CATS[k].t}</div>`).join('')}</div>`:'<p class="sub">Nothing mapped here yet.</p>')+
+ (n('steps')+n('steep')+n('wcNo')>0?`<div class="warn">${n('steps')} steps and ${n('steep')} steep slopes nearby. ${n('ramp')+n('elev')} ramps or lifts are mapped.</div>`:'')+
+ `<p class="sub">Data is from OpenStreetMap volunteers. Not mapped does not mean safe.</p>`;
+}
+
+/* ---------- directions ---------- */
+function startDirections(dest){
+ document.body.classList.add('dir');S.to=dest||S.to;
+ $('#to').value=S.to?S.to.name.split(',')[0]:'';
+ if(!S.from){locate(p=>{S.from={ll:p,name:'My location'};$('#from').value='My location';maybeRoute()},()=>{$('#from').focus()})}
+ else{$('#from').value=S.from.name.split(',')[0]}
+ openSheet(modeBar()+'<p class="sub">Choose a start and destination.</p>');bindModes();maybeRoute();
+}
+function modeBar(){return `<div class="modes" role="group" aria-label="Who is travelling">${Object.entries(MODES).map(([k,m])=>`<button class="mode" data-m="${k}" aria-pressed="${k===mode}">${m.n}</button>`).join('')}</div>`}
+function bindModes(){$$('.mode').forEach(b=>b.onclick=()=>{mode=b.dataset.m;P=MODES[mode].p;store.set('navaid_mode',mode);$$('.mode').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===mode));S.routes=[];maybeRoute()})}
+$('#qd').onclick=()=>startDirections(S.place);
+$('#dirClose').onclick=()=>{document.body.classList.remove('dir');S.routeMode=false;G.route.clearLayers();S.routes=[];if(S.place)placeShell();else showHome();loadView(true)};
+$('#swap').onclick=()=>{[S.from,S.to]=[S.to,S.from];$('#from').value=S.from?S.from.name.split(',')[0]:'';$('#to').value=S.to?S.to.name.split(',')[0]:'';maybeRoute()};
+$('#fromLoc').onclick=()=>locate(p=>{S.from={ll:p,name:'My location'};$('#from').value='My location';maybeRoute()},()=>toast('Location blocked'));
+function locate(ok,fail){
+ if(!navigator.geolocation)return fail&&fail();
+ navigator.geolocation.getCurrentPosition(p=>ok([p.coords.latitude,p.coords.longitude]),()=>fail&&fail(),{enableHighAccuracy:true,timeout:8000});
+}
+$('#locBtn').onclick=()=>locate(p=>{map.setView(p,17);if(!meMarker)meMarker=L.marker(p,{icon:L.divIcon({className:'',iconSize:[20,20],html:'<div class="me"></div>'})}).addTo(map);meMarker.setLatLng(p)},()=>toast('Location blocked or unavailable'));
+function maybeRoute(){if(S.from&&S.to&&document.body.classList.contains('dir'))getRoutes()}
+
+async function osrm(pts){
+ const c=pts.map(p=>p[1]+','+p[0]).join(';');
+ const r=await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${c}?overview=full&geometries=geojson&alternatives=true&steps=true`);
+ const j=await r.json();if(j.code!=='Ok')throw new Error('No walking route found between these places.');return j.routes;
+}
+function instrText(s){
+ const m=s.maneuver,mod=m.modifier||'',nm=s.name?' onto '+s.name:'';
+ if(m.type==='depart')return 'Start walking'+(s.name?' on '+s.name:'');
+ if(m.type==='arrive')return 'You have arrived';
+ if(mod==='uturn')return 'Make a U-turn'+nm;
+ if(m.type==='continue'||mod==='straight')return 'Continue straight'+(s.name?' on '+s.name:'');
+ return 'Turn '+mod.replace('slight ','slightly ')+nm;
+}
+function build(r){
+ const coords=r.geometry.coordinates.map(([lo,la])=>[la,lo]);
+ const dense=densify(coords);
+ const cum=[0];for(let i=1;i<dense.length;i++)cum[i]=cum[i-1]+dist(dense[i-1],dense[i]);
+ const steps=r.legs.flatMap(l=>l.steps).map(s=>({text:instrText(s),ll:[s.maneuver.location[1],s.maneuver.location[0]]}));
+ return {dense,cum,dist:cum[cum.length-1],steps,matched:[],cost:0,raw:r.distance};
+}
+function nearestIdx(dense,p,from=0,win=1e9){let bi=-1,bd=1e12;const to=Math.min(dense.length,from+win);for(let i=from;i<to;i++){const d=dist(dense[i],p);if(d<bd){bd=d;bi=i}}return [bi,bd]}
+function simplify(dense,gap){const o=[dense[0]];let a=0;for(let i=1;i<dense.length;i++){a+=dist(dense[i-1],dense[i]);if(a>=gap){o.push(dense[i]);a=0}}o.push(dense[dense.length-1]);return o}
+function match(route,els){
+ const grid=new Map();
+ route.dense.forEach((p,i)=>{const [a,b]=cell(p);const k=a+','+b;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
+ const out=[];
+ for(const h of els){
+  const stride=Math.max(1,Math.ceil(h.pts.length/30));let best=null;
+  for(let q=0;q<h.pts.length;q+=stride){
+   const p=h.pts[q],[a,b]=cell(p);
+   for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const arr=grid.get((a+da)+','+(b+db));if(!arr)continue;for(const i of arr){if(dist(route.dense[i],p)<=20&&(best===null||i<best))best=i}}
+  }
+  if(best!==null)out.push({h,idx:best,cost:costOf(h)});
+ }
+ return out.sort((x,y)=>x.idx-y.idx);
+}
+async function getRoutes(){
+ if(S.busy)return;S.busy=true;S.routeMode=true;G.all.clearLayers();
+ openSheet(modeBar()+'<p class="sub" role="status">Finding routes and checking every metre for hazards…</p>');bindModes();
+ try{
+  const a=S.from.ll,b=S.to.ll;
+  let cands=await osrm([a,b]);const total=cands[0].distance;
+  if(total<9000){
+   const vy=b[0]-a[0],vx=b[1]-a[1],mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+   const more=await Promise.allSettled([1,-1].map(s=>osrm([a,[mid[0]+s*-vx*.22,mid[1]+s*vy*.22],b])));
+   more.forEach(m=>{if(m.status==='fulfilled')cands.push(m.value[0])});
+  }
+  const seen=new Set();cands=cands.filter(r=>{const k=Math.round(r.distance/15);if(seen.has(k)||r.distance>total*1.8)return false;seen.add(k);return true}).slice(0,5);
+  const routes=cands.map(build);const minD=Math.min(...routes.map(r=>r.raw));
+  routes.forEach(r=>r.shortest=r.raw===minD);
+  const gap=Math.max(120,routes.reduce((s,r)=>s+r.dense.length*8,0)/450);
+  const pl=routes.flatMap(r=>simplify(r.dense,gap)).map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(',');
+  let els=[],warn='';
+  try{const A=`(around:22,${pl})`;els=(await overpass(query(A))).map(classify).filter(Boolean)}catch(e){warn='Hazard data could not load, so these routes are distance-only.'}
+  els=els.concat(reportsAsEls());
+  routes.forEach(r=>{r.matched=match(r,els);const hz=r.matched.reduce((s,m)=>s+m.cost,0);r.hz=hz;r.cost=r.dist+hz;r.score=Math.max(0,Math.round(100*(1-hz/(hz+Math.max(r.dist,400)*.6))))});
+  routes.sort((x,y)=>x.cost-y.cost);
+  S.routes=routes;S.sel=0;S.warn=warn;renderRoutes();
+ }catch(e){openSheet(modeBar()+`<p class="err">${esc(e.message)}</p>`);bindModes()}
+ S.busy=false;
+}
+function counts(r){const c={};r.matched.forEach(m=>{if(!GOOD.has(m.h.cat))c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
+function renderRoutes(){
+ const rs=S.routes,r=rs[S.sel],sh=rs.find(x=>x.shortest);
+ let h=modeBar();
+ if(S.warn)h+=`<div class="warn">${S.warn}</div>`;
+ if(rs[0].dist>P.maxKm*1000)h+=`<div class="warn">${km(rs[0].dist)} is a long walk. Consider the metro or an accessible cab for part of it.</div>`;
+ h+=rs.map((x,i)=>{const c=counts(x),l=Object.entries(c).map(([k,n])=>`${CATS[k].i} ${n}`).join('  ')||'No obstacles mapped';
+  return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${x.score}</span>${i===0?'<span class="tag">Most accessible</span>':''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}).join('');
+ if(sh&&sh!==rs[0])h+=`<p class="sub">Most accessible is ${km(rs[0].dist-sh.dist)} longer than the shortest and avoids ${Math.max(0,sh.matched.filter(m=>m.cost>=150).length-rs[0].matched.filter(m=>m.cost>=150).length)} serious obstacle(s).</p>`;
+ h+=`<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div><h3 style="margin:6px 0 0">Along this route</h3><ul class="l">`+
+  (r.matched.length?r.matched.map(m=>`<li><span>${CATS[m.h.cat].i}</span><span><b>${km(r.cum[m.idx])}</b> ${esc(m.h.m)}${!GOOD.has(m.h.cat)&&m.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':''}</span></li>`).join(''):'<li>Nothing mapped along this path.</li>')+'</ul>';
+ openSheet(h);bindModes();
+ $$('.rc').forEach(b=>b.onclick=()=>{S.sel=+b.dataset.i;renderRoutes()});
+ $('#goNav').onclick=()=>startNav(false);$('#goSim').onclick=()=>startNav(true);
+ drawRoute();
+}
+function drawRoute(){
+ G.route.clearLayers();G.pins.clearLayers();
+ pin(S.from.ll,'A','#10243A').addTo(G.pins);pin(S.to.ll,'B','#6A3DE8').addTo(G.pins);
+ S.routes.forEach((r,i)=>{if(i!==S.sel)L.polyline(r.dense,{color:'#6B7F92',weight:6,opacity:.6,dashArray:'6 8'}).addTo(G.route).on('click',()=>{S.sel=i;renderRoutes()})});
+ const r=S.routes[S.sel];
+ L.polyline(r.dense,{color:'#fff',weight:12}).addTo(G.route);
+ const line=L.polyline(r.dense,{color:'#0E7C86',weight:7}).addTo(G.route);
+ r.matched.forEach(m=>{const h=m.h;
+  if(h.line)L.polyline(h.pts,{color:CATS[h.cat].c,weight:6,opacity:.9,interactive:false}).addTo(G.route);
+  L.marker(h.pts[Math.floor(h.pts.length/2)],{icon:icon(h.cat)}).addTo(G.route).bindPopup(`<b>${CATS[h.cat].t}</b><br>${esc(h.m)}<br>${km(r.cum[m.idx])} from start`)});
+ if(!document.body.classList.contains('nav'))map.fitBounds(line.getBounds().pad(.15),{paddingBottomRight:[0,innerWidth<820?innerHeight*.45:0],paddingTopLeft:[innerWidth>=820?430:0,innerWidth<820?140:0]});
+}
+
+/* ---------- navigation ---------- */
+let voiceOn=true,timer=null,watch=null;
+function speak(t){$('#live').textContent=t;if(voiceOn&&'speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))}}
+function stopNav(){clearInterval(timer);timer=null;if(watch!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watch);watch=null}
+function startNav(sim){
+ const r=S.routes[S.sel];r.steps.forEach(s=>s.idx=nearestIdx(r.dense,s.ll)[0]);
+ S.nav={r,cur:0,alerted:new Set(),said:-1};stopNav();
+ document.body.classList.add('nav');document.body.classList.remove('dir');
+ openSheet(`<div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b id="eta">${mins(r.dist)}</b> · <span id="rem">${km(r.dist)}</span><div class="sub">to ${esc(short(S.to.name))}</div></div>
+  <button class="btn alt" id="vo">${voiceOn?'🔊':'🔇'}</button><button class="btn red" id="endNav">End</button></div>`);
+ $('#vo').onclick=e=>{voiceOn=!voiceOn;e.target.textContent=voiceOn?'🔊':'🔇'};
+ $('#endNav').onclick=endNav;
+ $('#nbT').textContent='Starting…';
+ map.setZoom(18);speak('Navigation started.');
+ if(sim){let i=0;const d=r.dense;timer=setInterval(()=>{tick(d[Math.min(i,d.length-1)]);i+=3;if(i>d.length+3)stopNav()},350)}
+ else if(navigator.geolocation)watch=navigator.geolocation.watchPosition(p=>tick([p.coords.latitude,p.coords.longitude]),()=>{$('#nbT').textContent='Cannot read your location';speak('Cannot read your location')},{enableHighAccuracy:true,maximumAge:1000});
+ else $('#nbT').textContent='GPS is not available. Try Preview walk.';
+}
+function endNav(){stopNav();document.body.classList.remove('nav');document.body.classList.add('dir');$('#nbA').style.display='none';maybeRouteRender()}
+function maybeRouteRender(){if(S.routes.length)renderRoutes()}
+function tick(p){
+ const N=S.nav,r=N.r;
+ if(!meMarker)meMarker=L.marker(p,{icon:L.divIcon({className:'',iconSize:[20,20],html:'<div class="me"></div>'}),zIndexOffset:1000}).addTo(map);
+ meMarker.setLatLng(p);map.panTo(p,{animate:true});
+ const [idx,dev]=nearestIdx(r.dense,p,Math.max(0,N.cur-5),250);
+ if(dev>80){$('#nbT').textContent='Off route';$('#nbA').style.display='block';
+  $('#nbA').innerHTML='You are off the route. <button class="btn" id="recalc" style="padding:6px 14px;margin-left:6px">Recalculate</button>';
+  $('#recalc').onclick=()=>{S.from={ll:p,name:'My location'};S.routes=[];stopNav();document.body.classList.remove('nav');document.body.classList.add('dir');getRoutes()};return}
+ N.cur=Math.max(N.cur,idx);
+ let si=0;r.steps.forEach((s,i)=>{if(s.idx<=N.cur)si=i});
+ const nxt=r.steps[Math.min(si+1,r.steps.length-1)],left=Math.max(0,Math.round(r.cum[nxt.idx]-r.cum[N.cur]));
+ $('#nbT').textContent=`${nxt.text} in ${left} m`;
+ const rem=r.dist-r.cum[N.cur];$('#rem').textContent=km(rem);$('#eta').textContent=mins(rem);
+ if(N.said!==si){N.said=si;speak(`${nxt.text} in ${left} metres`)}
+ r.matched.forEach((m,k)=>{
+  const ahead=r.cum[m.idx]-r.cum[N.cur];
+  if(ahead>0&&ahead<45&&!N.alerted.has(k)&&!GOOD.has(m.h.cat)){N.alerted.add(k);const t=`${CATS[m.h.cat].t} in ${Math.round(ahead)} metres. ${m.h.m}`;
+   const a=$('#nbA');a.style.display='block';a.textContent='⚠ '+t;speak(t);setTimeout(()=>{a.style.display='none'},7000)}
+ });
+ if(dist(p,r.dense[r.dense.length-1])<25){stopNav();arrive()}
+}
+function arrive(){
+ const t='You have arrived at '+short(S.to.name).split(',')[0]+'.';
+ $('#nbT').textContent=t;$('#nbA').style.display='none';speak(t);
+ openSheet(`<h2>${t}</h2><div class="btns"><button class="btn" id="share">Tell someone I arrived safely</button><button class="btn alt" id="done">Done</button></div>`);
+ $('#share').onclick=()=>{const m='I arrived safely at '+short(S.to.name).split(',')[0]+' (NAV-AID).';if(navigator.share)navigator.share({text:m});else{navigator.clipboard?.writeText(m);$('#share').textContent='Message copied'}};
+ $('#done').onclick=()=>{document.body.classList.remove('nav');S.routes=[];S.routeMode=false;G.route.clearLayers();closeSheet();loadView(true)};
+}
+
+/* ---------- report hazards ---------- */
+$('#sosBtn').onclick=openSOSPanel;
+$('#chatBtn').onclick=openSupportChat;
+$('#repBtn').onclick=()=>{S.reporting=!S.reporting;$('#repBtn').classList.toggle('on',S.reporting);toast(S.reporting?'Tap the map where the hazard is':'')};
+map.on('click',e=>{
+ if(!S.reporting)return;S.reporting=false;$('#repBtn').classList.remove('on');
+ const types=['Pothole','Broken pavement','No ramp','Blocked path','Construction','Open drain'];
+ const pop=L.popup().setLatLng(e.latlng).setContent('<b>What is here?</b><br>'+types.map(t=>`<button class="btn" style="padding:6px 12px" data-t="${t}">${t}</button>`).join('')).openOn(map);
+ pop.getElement().querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{
+  const rs=store.get('navaid_reports',[]);rs.push({lat:e.latlng.lat,lon:e.latlng.lng,type:b.dataset.t,ts:Date.now()});store.set('navaid_reports',rs);
+  map.closePopup();drawReports();S.viewEls=S.viewEls.filter(h=>h.cat!=='report').concat(reportsAsEls());drawView();toast('Hazard saved. Future routes will avoid it.');
+ });
+});
+function drawReports(){G.rep.clearLayers();store.get('navaid_reports',[]).forEach(r=>L.marker([r.lat,r.lon],{icon:icon('report'),title:r.type}).addTo(G.rep).bindPopup('Reported: '+esc(r.type)+'<br>'+new Date(r.ts).toLocaleDateString()))}
+drawReports();
+
+/* ---------- home screen: open on your location, hazards visible ---------- */
+showHome();
+locate(p=>{if(p[0]>6&&p[0]<37.5&&p[1]>68&&p[1]<98)map.setView(p,16)},()=>{});
+setTimeout(()=>loadView(true),800);
+</script>
+</body>
+</html>
