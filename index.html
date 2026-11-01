@@ -627,7 +627,7 @@ async function scanRoutes(mine,gap){
  {const o=[];let i=0,j=chunks.length-1;while(i<=j){o.push(chunks[i++]);if(i<=j)o.push(chunks[j--])}chunks.splice(0,chunks.length,...o)}
  const alive=()=>S.routes===mine,t0=Date.now(),late=()=>Date.now()-t0>1500000;
  const found=new Map();
- const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);scoreRoute(r)})};
+ const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);r.tl=trafficLevels(r,els);scoreRoute(r)})};
  const each=data=>{for(const el of data||[])found.set(el.type+'/'+el.id,el)};
  let label='';
  each.progress=(d,t)=>{if(!alive())return false;S.warn=`Scanning ${S.osmMode?'via OpenStreetMap API, Overpass is down':label} (${d}/${t} sections)…`;apply();renderRoutes();return !late()};
@@ -651,7 +651,35 @@ async function scanRoutes(mine,gap){
  renderRoutes();
  if(allFail){const p=await pingServers().catch(()=>'ping failed');if(alive()){S.warn=S.warn.replace('<span id="pingBox"><i>Testing map servers…</i></span>','<br><small><b>Server test:</b> '+esc(p)+'</small>'+(/429/.test(p+S.warn)?'<br><b>HTTP 429 = the map server is rate-limiting this connection.</b> Wait 3 to 5 minutes without pressing anything, then tap Retry. The app now sends far fewer requests and remembers results.':'')+'<br><small>If all say "no reply" or "blocked": switch to mobile data / another Wi-Fi, turn off VPN or ad-blocker, wait 5 minutes and retry.</small>');renderRoutes()}return}
 }
-function counts(r){const c={};r.matched.forEach(m=>{if(!GOOD.has(m.h.cat))c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
+/* ---------- traffic colouring (like Google Maps) ----------
+   Estimated from road class in OpenStreetMap, not live data:
+   0 = clear (teal, unchanged), 1 = moderate (orange: secondary roads), 2 = heavy (red: trunk/primary roads) */
+const TCOL=['#0E7C86','#F29900','#D93025'];
+function trafficLevels(route,els){
+ const n=route.dense.length,lv=new Array(n).fill(0),grid=new Map();
+ route.dense.forEach((p,i)=>{const [a,b]=cell(p),k=a+','+b;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
+ for(const h of els){
+  if(h.cat!=='traffic'||h.note)continue;
+  const hw=h.tags&&h.tags.highway,L=/^(trunk|primary)$/.test(hw||'')?2:hw==='secondary'?1:0;
+  if(!L||!h.line)continue;
+  for(const p of densify(h.pts,10)){
+   const [a,b]=cell(p);
+   for(let da=-2;da<=2;da++)for(let db=-2;db<=2;db++){
+    const arr=grid.get((a+da)+','+(b+db));if(!arr)continue;
+    for(const i of arr)if(lv[i]<L&&dist(route.dense[i],p)<=25)lv[i]=L;
+   }
+  }
+ }
+ /* smooth: fill 1-2 point gaps so the line is not speckled */
+ for(let i=1;i<n-1;i++)if(lv[i]<lv[i-1]&&lv[i-1]===lv[i+1])lv[i]=lv[i-1];
+ return lv;
+}
+function trafficShare(r){
+ if(!r.tl)return null;const s=[0,0,0];
+ for(let i=1;i<r.dense.length;i++)s[r.tl[i]]+=r.cum[i]-r.cum[i-1];
+ return s;
+}
+function counts(r){const c={};r.matched.forEach(m=>{if(!GOOD.has(m.h.cat)&&m.h.cat!=='traffic')c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
 function renderRoutes(){
  const rs=S.routes,r=rs[S.sel],sh=rs.find(x=>x.shortest);
  let h=modeBar();
@@ -659,15 +687,16 @@ function renderRoutes(){
  if(!S.warn&&rs.every(x=>x.matched.length===0))h+='<div class="warn">OpenStreetMap has no accessibility or hazard tags along these routes. The accessibility score is unavailable; the suggested route is ordered by distance. Use 🕳 Report to add a local hazard.</div>';
  if(rs[0].dist>P.maxKm*1000)h+=`<div class="warn">${km(rs[0].dist)} is a long walk. Consider the metro or an accessible cab for part of it.</div>`;
  h+=rs.map((x,i)=>{const c=counts(x),l=Object.entries(c).map(([k,n])=>`${CATS[k].i} ${n}`).join('  ')||(x.matched.length?'No route hazards tagged':S.scan==='failed'?'Access scan failed':S.scan==='scanning'?'Scanning…':'No access data tagged');
-  return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${rs.every(y=>y.matched.length===0)?'—':x.score}</span>${i===0?`<span class="tag">${rs.every(y=>y.matched.length===0)?'Suggested route':'Most accessible'}</span>`:''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}).join('');
+  return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${rs.every(y=>y.matched.length===0)?'—':x.score}</span>${i===0?`<span class="tag">${rs.every(y=>y.matched.length===0)?'Suggested route':'Most accessible'}</span>`:''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br>${(()=>{const s=trafficShare(x);if(!s||!x.dist)return '';const hv=Math.round(100*s[2]/x.dist),md=Math.round(100*s[1]/x.dist);return `<b style="font-size:1.1rem">${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub" style="font-weight:700;color:${hv>=15?TCOL[2]:md>=15?'#B25E00':TCOL[0]}">${hv>=15?'Heavy traffic '+hv+'%':md>=15?'Moderate traffic '+md+'%':'Light traffic'}</span><br><span class="sub">${l}</span></button>`})()||`<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}`}).join('');
  if(sh&&sh!==rs[0])h+=`<p class="sub">Most accessible is ${km(rs[0].dist-sh.dist)} longer than the shortest and avoids ${Math.max(0,sh.matched.filter(m=>m.cost>=150).length-rs[0].matched.filter(m=>m.cost>=150).length)} serious obstacle(s).</p>`;
+ h+='<div class="sub" style="margin:6px 0"><span style="color:'+TCOL[2]+'">━</span> Heavy traffic &nbsp;<span style="color:'+TCOL[1]+'">━</span> Moderate &nbsp;<span style="color:'+TCOL[0]+'">━</span> Clear <small>(estimated from road type)</small></div>';
  h+=routeSummary(r);
  h+='<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div>';
  const gUrl='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(S.from.ll.join(','))+'&destination='+encodeURIComponent(S.to.ll.join(','))+'&travelmode=walking';
  h+='<a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="'+gUrl+'">Open walking route in Google Maps ↗</a>';
  {const mp=r.dense[Math.floor(r.dense.length/2)];h+='<a class="btn alt" style="display:inline-block;text-decoration:none;margin-top:8px" target="_blank" rel="noopener" href="https://www.google.com/maps/@'+mp[0].toFixed(5)+','+mp[1].toFixed(5)+',14z/data=!5m1!1e1">See live traffic on Google Maps ↗</a>'}
  h+='<h3 style="margin:6px 0 0">Turn-by-turn &amp; access details</h3><ul class="l">';
- const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(r.matched.map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
+ const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(r.matched.filter(m=>m.h.cat!=='traffic').map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
  h+=events.length?events.map(e=>'<li><span>'+e.icon+'</span><span><b>'+km(r.cum[e.idx])+'</b> '+esc(e.text)+(e.obstacle&&!GOOD.has(e.obstacle.h.cat)&&e.obstacle.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':'')+'</span></li>').join(''):'<li>No route steps are available.</li>';
  openSheet(h);bindModes();
  $$('.rc').forEach(b=>b.onclick=()=>{S.sel=+b.dataset.i;renderRoutes()});
@@ -693,8 +722,10 @@ function drawRoute(fit=true){
  S.routes.forEach((r,i)=>{if(i!==S.sel)L.polyline(r.dense,{color:'#6B7F92',weight:6,opacity:.6,dashArray:'6 8'}).addTo(G.route).on('click',()=>{S.sel=i;renderRoutes()})});
  const r=S.routes[S.sel];
  L.polyline(r.dense,{color:'#fff',weight:12}).addTo(G.route);
- const line=L.polyline(r.dense,{color:'#0E7C86',weight:7}).addTo(G.route);
- r.matched.forEach(m=>{const h=m.h;if(hiddenG.has(CATS[h.cat].g))return;
+ const line=L.polyline(r.dense,{color:TCOL[0],weight:7,opacity:0}).addTo(G.route);
+ if(r.tl){let s=0;for(let i=1;i<=r.dense.length;i++){if(i===r.dense.length||r.tl[i]!==r.tl[s]){L.polyline(r.dense.slice(s,Math.min(i+1,r.dense.length)),{color:TCOL[r.tl[s]],weight:7,lineCap:'butt',lineJoin:'round',interactive:false}).addTo(G.route);s=i}}}
+ else L.polyline(r.dense,{color:TCOL[0],weight:7,interactive:false}).addTo(G.route);
+ r.matched.forEach(m=>{const h=m.h;if(h.cat==='traffic'||hiddenG.has(CATS[h.cat].g))return;
   if(h.line&&h.cat!=='traffic')L.polyline(h.pts,{color:CATS[h.cat].c,weight:6,opacity:.9,interactive:false}).addTo(G.route);
   const accessPoint=h.pts[m.hidx??Math.floor(h.pts.length/2)]||h.pts[0];L.marker(accessPoint,{icon:icon(h.cat),title:CATS[h.cat].t}).addTo(G.route).bindPopup('<b>'+CATS[h.cat].t+'</b><br>'+esc(h.m)+'<br>'+km(r.cum[m.idx])+' from start');
  });
