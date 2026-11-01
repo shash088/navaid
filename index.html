@@ -38,7 +38,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #dirbar .sb+.sb{margin-top:6px}
 #dirHead{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:700}
 #dirHead button{border:0;background:#EEF3F7;border-radius:50%;width:36px;height:36px}
-body.dir #dirbar{display:flex}body.dir #sb1,body.dir #chips{display:none}
+body.dir #dirbar{display:flex}body.dir #sb1{display:none}
 body.nav #top{display:none}
 #chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
 #chips::-webkit-scrollbar{display:none}
@@ -78,7 +78,7 @@ ul.l li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);
 body.nav #nb{display:block}
 #nb .big{font-size:1.5rem;font-weight:700;line-height:1.2}
 #nb .al{margin-top:8px;background:#FFE9EC;color:#6a0016;border-radius:8px;padding:8px 10px;font-weight:700;display:none}
-.mk{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;border:3px solid #fff;box-shadow:0 0 0 1.5px #000;color:#fff}
+.mk{width:34px;height:34px;border-radius:3px;display:grid;place-items:center;box-shadow:0 2px 7px #0005;color:#fff}
 .me{width:20px;height:20px;border-radius:50%;background:#2563EB;border:4px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.4)}
 .leaflet-control-zoom{display:none}
 .leaflet-popup-content button{margin:3px 2px}
@@ -91,7 +91,7 @@ body.nav #nb{display:block}
  #sheet.home{bottom:auto;max-height:calc(100vh - 92px)}
  #top{width:410px;right:auto}
  #chips{position:fixed;left:434px;top:calc(12px + env(safe-area-inset-top));right:80px;padding:0}
- body.dir #chips{display:none}
+
  #sheet{left:12px;right:auto;width:410px;bottom:12px;top:80px;max-height:none;border-radius:14px;padding-top:12px}
  body.dir #sheet{top:200px}
  #grab{display:none}
@@ -99,7 +99,7 @@ body.nav #nb{display:block}
  .leaflet-control-zoom{display:block}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
-</style>
+ .mk .sym{width:26px;height:26px;display:block;stroke:#fff;fill:none;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round}.chip-sym{width:24px;height:24px;background:#df2029;border-radius:3px;display:inline-grid;place-items:center;vertical-align:-7px;margin-right:4px}.chip .sym{width:18px;height:18px;display:block;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
 </head>
 <body>
 <div id="map" role="application" aria-label="Accessibility map"></div>
@@ -146,13 +146,35 @@ const CATS={
  crossP:{i:'🚸',c:'#B25E00',t:'Crossing, no signal',g:'Crossings'},crossS:{i:'🚦',c:'#1B7F3B',t:'Signal crossing',g:'Crossings'},
  elev:{i:'🛗',c:'#1B7F3B',t:'Elevator',g:'Ramps and lifts'},ramp:{i:'♿',c:'#1B7F3B',t:'Ramp or dropped kerb',g:'Ramps and lifts'},
  surf:{i:'🪨',c:'#B25E00',t:'Rough surface',g:'Rough ground'},narrow:{i:'↔',c:'#B25E00',t:'Narrow path',g:'Narrow and barriers'},
- steep:{i:'⛰',c:'#C8102E',t:'Steep slope',g:'Slopes'},barrier:{i:'🚧',c:'#B25E00',t:'Barrier',g:'Narrow and barriers'},
+ steep:{i:'⛰',c:'#C8102E',t:'Slope / incline',g:'Slopes'},barrier:{i:'🚧',c:'#B25E00',t:'Barrier',g:'Narrow and barriers'},
  calm:{i:'〰',c:'#B25E00',t:'Speed bump',g:'Narrow and barriers'},wcNo:{i:'🚫',c:'#C8102E',t:'Not wheelchair accessible',g:'Steps'},
- report:{i:'🕳',c:'#C8102E',t:'Reported hazard',g:'Reports'},toilet:{i:'🚻',c:'#0E7C86',t:'Toilets',g:'Facilities'},
- transit:{i:'🚇',c:'#0E7C86',t:'Station or stop',g:'Facilities'},hazard:{i:'⚠',c:'#C8102E',t:'Marked hazard',g:'Reports'}
+ report:{i:'🕳',c:'#C8102E',t:'Reported hazard',g:'Potholes'},pothole:{i:'🕳',c:'#C8102E',t:'Pothole / uneven surface',g:'Potholes'},toilet:{i:'🚻',c:'#0E7C86',t:'Toilets',g:'Facilities'},
+ traffic:{i:'🚗',c:'#B25E00',t:'Busy road / traffic',g:'Traffic'},
+ transit:{i:'🚇',c:'#0E7C86',t:'Station or stop',g:'Facilities'},hazard:{i:'⚠',c:'#C8102E',t:'Marked hazard',g:'Potholes'}
 };
+const SYMBOLS={
+ steps:'<path d="M4 20h5v-5h5v-5h6"/>',
+ steep:'<path d="M3 19h18M4 18 18 5"/>',
+ crossP:'<path d="m5 4 4 16m2-16 4 16m2-16 3 16"/>',
+ crossS:'<path d="m3 4 4 16m2-16 4 16m2-16 3 16"/><circle cx="20" cy="5" r="1.4"/>',
+ elev:'<path d="M5 21V3h14v18"/><path d="M12 6v5m-3-3 3-3 3 3m-3 4v6m-3-3 3 3 3-3"/>',
+ ramp:'<path d="M3 20h18M4 19 18 5"/>',
+ surf:'<path d="M3 17h5l4-7 4 7h3l3-5"/>',
+ narrow:'<path d="M4 21V4h16v17M8 17h8m-7-4h6m-5-4h4"/>',
+ kerb:'<path d="M3 20h6v-5h5v-5h7"/>',
+ barrier:'<path d="M5 21h14M8 21V9a4 4 0 0 1 8 0v12"/>',
+ calm:'<path d="M3 18h4l3-7h4l3 7h4"/>',
+ wcNo:'<circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/>',
+ report:'<path d="M3 17q4-8 9-8t9 8"/><path d="M5 18h14"/>',
+ pothole:'<path d="M3 17q4-8 9-8t9 8"/><path d="M5 18h14"/>',
+ toilet:'<path d="M6 4h12v5H6zM7 9v3a5 5 0 0 0 10 0V9M12 17v3m-4 0h8"/>',
+ traffic:'<path d="M4 16V12l2-5h12l2 5v4zM4 12h16M7 16v3m10-3v3"/>',
+ transit:'<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8v6H8zM8 17h.1m7.9 0h.1M8 21l2-3m6 3-2-3"/>',
+ hazard:'<path d="m12 3 10 18H2z"/><path d="M12 9v5m0 3h.1"/>'
+};
+const symbol=k=>'<svg class="sym" viewBox="0 0 24 24" aria-hidden="true">'+(SYMBOLS[k]||SYMBOLS.hazard)+'</svg>';
 const GOOD=new Set(['elev','ramp','crossS','toilet','transit']);
-const GROUPS=[['Steps','🪜'],['Ramps and lifts','♿'],['Crossings','🚦'],['Rough ground','🪨'],['Narrow and barriers','↔'],['Slopes','⛰'],['Kerbs','⬆'],['Reports','🕳'],['Facilities','🚻']];
+const GROUPS=[['Steps','steps'],['Ramps and lifts','ramp'],['Crossings','crossS'],['Rough ground','surf'],['Narrow and barriers','narrow'],['Slopes','steep'],['Kerbs','kerb'],['Traffic','traffic'],['Potholes','pothole'],['Facilities','toilet']];
 const hiddenG=new Set();
 
 /* ---------- modes: nothing to configure, everything on by default ---------- */
@@ -174,7 +196,7 @@ const v0=store.get('navaid_view2',{c:[28.70,77.35],z:11});
 const map=L.map('map',{zoomControl:true,tap:true,minZoom:5,maxBounds:[[5,66],[38,99]],maxBoundsViscosity:.7}).setView(v0.c,v0.z);
 L.control.zoom({position:'bottomleft'}).addTo(map);
 const TILES=[
- ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4z72_1_cc4cdc29b28ec2a7dbb1228f',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}],
+ ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4zfw_1_37b367e51623c92d26685984',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}],
  ['https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}],
  ['https://a.tile.openstreetmap.de/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}]];
 let tl=null,tErr=0,tOk=0;
@@ -188,16 +210,17 @@ useTiles(0);
 function showNote(){
  $('#mapLoading').classList.add('done');
  const framed=window.top!==window.self,file=location.protocol==='file:';
- $('#mapWhy').innerHTML=framed?'This page is running inside a preview window, which blocks maps and map data. <b>Download the file and open it in Chrome, Edge or Safari in its own tab.</b>'
+ $('#mapWhy').innerHTML=framed?'This preview blocks external map tiles. Open the downloaded NAV-AID file in a regular browser tab.'
+  :file?'<b>This page is opened directly from a file.</b> Map providers may block file:// requests. Open NAV-AID with the included local launcher to open NAV-AID through localhost, then refresh.'
   :!navigator.onLine?'Your device looks offline. Connect to the internet and reload.'
-  :'A network, school or office filter, or an ad blocker, may be blocking <code>cartocdn.com</code> and <code>openstreetmap.org</code>. Try another network or turn the blocker off for this page.'+(file?' If it still fails, run <code>python -m http.server 8000</code> in the file’s folder and visit <code>localhost:8000/nav-aid-v3.html</code>.':'');
+  :'The map tile providers are blocked or unavailable on this network. Try another network or disable the blocker for this page.';
  $('#mapNote').style.display='block';
 }
 setTimeout(()=>{if(!tOk)showNote()},9000);
 const G={route:L.layerGroup().addTo(map),all:L.layerGroup().addTo(map),pins:L.layerGroup().addTo(map),rep:L.layerGroup().addTo(map)};
 let meMarker=null;
 const S={from:null,to:null,place:null,routes:[],sel:0,viewEls:[],fetched:null,busy:false,nav:null,reporting:false,routeMode:false};
-const icon=c=>L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,15],html:`<div class="mk" style="background:${CATS[c].c}">${CATS[c].i}</div>`});
+const icon=c=>L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:'<div class="mk" style="background:#df2029">'+symbol(c)+'</div>'});
 const pin=(ll,t,col)=>L.marker(ll,{icon:L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:`<div class="mk" style="background:${col};width:34px;height:34px;font-weight:700">${t}</div>`})});
 
 /* ---------- helpers ---------- */
@@ -271,29 +294,68 @@ new ResizeObserver(()=>{$('#fabs').style.bottom=(innerWidth<820&&!$('#sheet').hi
 addEventListener('resize',()=>$('#sheet').dispatchEvent(new Event('x')));
 
 /* ---------- Overpass: show everything ---------- */
-function query(A,extra){return `[out:json][timeout:18];(
-way${A}["highway"="steps"];node${A}["highway"="elevator"];node${A}["elevator"="yes"];
-way${A}["ramp"="yes"];way${A}["ramp:wheelchair"="yes"];
+function query(A,extra){return `[out:json][timeout:25];(
+way${A}["highway"="steps"];node${A}["highway"="steps"];node${A}["highway"="elevator"];way${A}["elevator"="yes"];node${A}["elevator"="yes"];
+way${A}["ramp"="yes"];node${A}["ramp"="yes"];way${A}["ramp:wheelchair"="yes"];node${A}["ramp:wheelchair"="yes"];
 node${A}["barrier"~"^(bollard|gate|stile|cycle_barrier|chain|lift_gate|kerb)$"];
-node${A}["highway"="crossing"];way${A}["highway"]["wheelchair"~"^(no|limited)$"];
+node${A}["highway"="crossing"];node${A}["highway"="traffic_signals"];node${A}["railway"="level_crossing"];node${A}["kerb"~"^(raised|high|lowered|flush|rolled)$"];way${A}["highway"]["wheelchair"~"^(no|limited)$"];
 way${A}["highway"]["incline"];
 way${A}["highway"]["surface"~"^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$"];
+way${A}["highway"]["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];
 way${A}["highway"]["smoothness"~"^(bad|very_bad|horrible|very_horrible|impassable)$"];
-way${A}["highway"~"^(footway|path|pedestrian)$"]["width"];
-node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];node${A}["hazard"];${extra||''}
+way${A}["highway"~"^(footway|path|pedestrian)$"]["width"];way${A}["highway"~"^(footway|path|pedestrian)$"]["width:clearance"];way${A}["highway"~"^(footway|path|pedestrian)$"]["narrow"="yes"];
+node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];node${A}["hazard"];way${A}["highway"]["hazard"];node${A}["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];${extra||''}
 );out geom tags;`}
+const trafficQuery=A=>`[out:json][timeout:15];way${A}["highway"~"^(trunk|primary|secondary)$"];out geom tags;`;
+const SURF='^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$';
+const queryCore=A=>`[out:json][timeout:25];(way${A}["highway"="steps"];node${A}["highway"="steps"];node${A}["highway"="elevator"];way${A}["elevator"="yes"];node${A}["elevator"="yes"];way${A}["ramp"="yes"];node${A}["ramp"="yes"];way${A}["ramp:wheelchair"="yes"];node${A}["ramp:wheelchair"="yes"];node${A}["highway"="crossing"];node${A}["highway"="traffic_signals"];node${A}["railway"="level_crossing"];way${A}["highway"]["surface"~"${SURF}"];way${A}["highway"]["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];way${A}["highway"]["smoothness"~"^(bad|very_bad|horrible|very_horrible|impassable)$"];node${A}["hazard"];way${A}["highway"]["hazard"];node${A}["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];);out geom tags;`;
+const queryMore=A=>`[out:json][timeout:25];(node${A}["barrier"~"^(bollard|gate|stile|cycle_barrier|chain|lift_gate|kerb)$"];node${A}["kerb"~"^(raised|high|lowered|flush|rolled)$"];way${A}["highway"]["wheelchair"~"^(no|limited)$"];way${A}["highway"]["incline"];way${A}["highway"~"^(footway|path|pedestrian)$"]["width"];way${A}["highway"~"^(footway|path|pedestrian)$"]["width:clearance"];way${A}["highway"~"^(footway|path|pedestrian)$"]["narrow"="yes"];node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];);out geom tags;`;
+async function pingServers(){
+ const q='[out:json][timeout:5];node(1);out;';
+ return (await Promise.all(OVP.slice(0,3).map(async u=>{const t=performance.now(),c=new AbortController(),tm=setTimeout(()=>c.abort(),7000);
+  try{const x=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:c.signal});return u.split('/')[2]+': '+(x.ok?Math.round(performance.now()-t)+' ms OK':'HTTP '+x.status)}
+  catch(e){return u.split('/')[2]+': '+(c.signal.aborted?'no reply in 7 s':'blocked')}finally{clearTimeout(tm)}}))).join(' | ');
+}
 const EXTRA=A=>`node${A}["amenity"="toilets"];node${A}["railway"~"^(station|subway_entrance)$"];node${A}["highway"="bus_stop"];`;
 let activeOverpass=null;
-async function overpass(q){
- let last;
- for(const u of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);activeOverpass=controller;
-  try{const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:controller.signal});if(!r.ok)throw new Error('Map data server busy ('+r.status+')');const data=await r.json();if(data.remark)throw new Error(data.remark);return data.elements||[]}
-  catch(e){last=e;if(controller.signal.aborted)break}
-  finally{clearTimeout(timer);if(activeOverpass===controller)activeOverpass=null}
- }
- throw last||new Error('Map data request timed out');
-}function classify(e){
+const OVP=['https://lz4.overpass-api.de/api/interpreter','https://overpass-api.de/api/interpreter','https://z.overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const deadUntil={};
+const sleep=(ms,sig)=>new Promise((res,rej)=>{const t=setTimeout(res,ms);if(sig)sig.addEventListener('abort',()=>{clearTimeout(t);rej(new Error('stopped'))},{once:true})});
+async function overpassRaw(q,ms){
+ const ctrl=new AbortController(),handle={abort:()=>ctrl.abort()};activeOverpass=handle;
+ const t0=Date.now(),errs=[],body='data='+encodeURIComponent(q),outer=setTimeout(()=>ctrl.abort(),ms);
+ const stopMsg=()=>new Error(errs.concat(['stopped after '+Math.round((Date.now()-t0)/1000)+' s']).join(' | '));
+ try{
+  for(const u of OVP){
+   const host=u.split('/')[2];if((deadUntil[host]||0)>Date.now())continue;
+   for(let n=0;n<3;n++){
+    const ac=new AbortController(),link=()=>ac.abort();ctrl.signal.addEventListener('abort',link,{once:true});
+    const tm=setTimeout(()=>ac.abort(),15000);
+    try{
+     const r=await fetch(u,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ac.signal});
+     if(r.status===429||r.status===504){errs.push(host+': HTTP '+r.status+' (rate limited, waiting)');clearTimeout(tm);if(n<2){await sleep(7000*(n+1),ctrl.signal);continue}break}
+     if(!r.ok){errs.push(host+': HTTP '+r.status);break}
+     const d=await r.json();if(d.remark){errs.push(host+': '+String(d.remark).slice(0,60));break}
+     return d.elements||[];
+    }catch(e){
+     if(ctrl.signal.aborted)throw stopMsg();
+     errs.push(host+': '+(ac.signal.aborted?'no reply in 15 s':'blocked/unreachable'));deadUntil[host]=Date.now()+600000;break;
+    }finally{clearTimeout(tm);ctrl.signal.removeEventListener('abort',link)}
+   }
+  }
+  throw new Error(errs.join(' | ')||'No map server available right now');
+ }finally{clearTimeout(outer);if(activeOverpass===handle)activeOverpass=null}
+}
+let ovpLast=0,ovpChain=Promise.resolve();
+const OC='navaid_ovp_cache1';
+const cacheGet=q=>{const e=store.get(OC,{})[q];return e&&Date.now()-e.t<864e5?e.d:null};
+const cachePut=(q,d)=>{const c=store.get(OC,{});c[q]={t:Date.now(),d};const ks=Object.keys(c);if(ks.length>25)ks.sort((x,y)=>c[x].t-c[y].t).slice(0,ks.length-25).forEach(k=>delete c[k]);store.set(OC,c)};
+function overpass(q,ms=60000){
+ const hit=cacheGet(q);if(hit)return Promise.resolve(hit);
+ const p=ovpChain.then(async()=>{const w=ovpLast+1500-Date.now();if(w>0)await sleep(w);try{const d=await overpassRaw(q,ms);cachePut(q,d);return d}finally{ovpLast=Date.now()}});
+ ovpChain=p.catch(()=>{});return p;
+}
+function classify(e){
  const t=e.tags||{};
  const pts=e.type==='node'?[[e.lat,e.lon]]:(e.geometry||[]).map(g=>[g.lat,g.lon]);
  if(!pts.length)return null;
@@ -304,19 +366,24 @@ async function overpass(q){
  }else if(t.highway==='elevator'||t.elevator==='yes'){cat='elev';m='Elevator'}
  else if(t.ramp==='yes'||t['ramp:wheelchair']==='yes'){cat='ramp';m='Ramp'}
  else if(t.amenity==='toilets'){cat='toilet';m='Toilets, wheelchair: '+(t.wheelchair||'unknown')}
- else if(t.railway||t.highway==='bus_stop'){cat='transit';m=(t.name||'Station or stop')+', wheelchair: '+(t.wheelchair||'unknown')}
- else if(t.hazard){cat='hazard';m='Hazard: '+t.hazard}
+ else if(/^(station|subway_entrance|halt|tram_stop)$/.test(t.railway||'')||t.highway==='bus_stop'){cat='transit';m=(t.name||'Station or stop')+', wheelchair: '+(t.wheelchair||'unknown')}
+ else if(/pothole|potholes|uneven_surface/i.test([t.hazard,t['surface:condition'],t.surface].filter(Boolean).join(' '))){cat='pothole';m='Pothole / uneven surface: '+[t.hazard,t['surface:condition'],t.surface].filter(Boolean).join(' · ')}
+ else if(/rough|bad|uneven|damaged/i.test(t['surface:condition']||'')){cat='surf';m='Uneven or damaged surface: '+t['surface:condition']}
+ else if(t.hazard||t['surface:condition']){cat='hazard';m='Hazard: '+[t.hazard,t['surface:condition']].filter(Boolean).join(' · ')}
+ else if(t.kerb==='raised'||t.kerb==='high'){cat='kerb';m='Raised kerb'}
+ else if(t.kerb==='lowered'||t.kerb==='flush'||t.kerb==='rolled'){cat='ramp';m='Lowered / dropped kerb'}
  else if(t.barrier){
   if(t.barrier==='kerb'){if(t.kerb==='raised'){cat='kerb';m='Raised kerb'}else{cat='ramp';m='Dropped kerb'}}
   else{cat='barrier';m='Barrier: '+t.barrier}
- }else if(t.highway==='crossing'){
-  const sig=/signals/.test(t.crossing||'')||t.traffic_signals==='yes'||t.crossing_ref==='pelican';
-  cat=sig?'crossS':'crossP';m=(sig?'Signal crossing':'Crossing without signals')+(t.tactile_paving==='yes'?', tactile paving':', no tactile paving mapped')+(t.kerb==='raised'?', raised kerb':'');
+ }else if(t.highway==='crossing'||t.highway==='traffic_signals'||t.railway==='level_crossing'){
+  const sig=t.highway==='traffic_signals'||/signals/.test(t.crossing||'')||t.traffic_signals==='yes'||t.crossing_ref==='pelican';
+  cat=sig?'crossS':'crossP';m=(t.railway==='level_crossing'?'Railway level crossing':sig?'Signal crossing':'Crossing without signals')+(t.tactile_paving==='yes'?', tactile paving':t.highway==='crossing'?', tactile paving not mapped':'')+(t.kerb==='raised'||t.kerb==='high'?', raised kerb':t.kerb==='lowered'||t.kerb==='flush'?', lowered kerb':'');
  }else if(/^(no|limited)$/.test(t.wheelchair||'')){cat='wcNo';m='Wheelchair access: '+t.wheelchair}
- else if(t.incline){const v=parseFloat(t.incline);if(/%/.test(t.incline)&&Math.abs(v)>=3){cat='steep';m='Slope '+t.incline;slope=Math.abs(v)}else return null}
- else if((t.surface&&/^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$/.test(t.surface))||t.smoothness){cat='surf';m='Surface: '+(t.surface||'')+(t.smoothness?' ('+t.smoothness+' smoothness)':'')}
- else if(t.width&&parseFloat(t.width)<1.2){cat='narrow';m='Narrow path, '+t.width+' m'}
+ else if(t.incline){const raw=String(t.incline).trim(),v=parseFloat(raw);if(Number.isFinite(v)){slope=Math.abs(v);cat='steep';m='Slope / incline '+raw}else if(/^(up|down|yes)$/i.test(raw)){cat='steep';m='Incline tagged '+raw+'; steepness unknown'}if(!cat)return null}
+ else if((t.surface&&/^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$/.test(t.surface))||t.smoothness){cat='surf';m='Surface: '+(t.surface||'unknown')+(t.smoothness?' ('+t.smoothness+' smoothness)':'')}
+ else if(t.narrow==='yes'||[t.width,t['width:clearance']].some(w=>Number.isFinite(parseFloat(w))&&parseFloat(w)<1.2)){cat='narrow';m='Narrow path'+(t.width?' ('+t.width+' m)':t['width:clearance']?' (clearance '+t['width:clearance']+' m)':' (tagged narrow)')}
  else if(t.traffic_calming){cat='calm';m='Speed bump'}
+ else if(/^(trunk|primary|secondary)$/.test(t.highway||'')){cat='traffic';m='Busy road ('+t.highway+')'+(t.name?' · '+t.name:'')+', expect vehicles beside the route'}
  else return null;
  return {cat,m,pts,line:e.type==='way',tags:t,slope};
 }
@@ -333,7 +400,9 @@ function costOf(h){
   case 'barrier':return t.barrier==='stile'?3000:t.barrier==='bollard'?(P.tactile?150:60):(P.noNarrow?250:50);
   case 'calm':return P.noKerb?120:30;
   case 'wcNo':return mode==='wheel'||mode==='all'?1500:200;
+  case 'traffic':return 40;
   case 'report':return 450;
+  case 'pothole':return 1800;
   case 'hazard':return 300;
   default:return 0;
  }
@@ -346,7 +415,7 @@ function drawView(){
  let n=0;
  for(const h of S.viewEls){
   if(hiddenG.has(CATS[h.cat].g)||n>700)continue;n++;
-  if(h.line)L.polyline(h.pts,{color:CATS[h.cat].c,weight:5,opacity:.85,dashArray:h.cat==='surf'?'3 7':null,interactive:false}).addTo(G.all);
+  if(h.line)L.polyline(h.pts,{color:CATS[h.cat].c,weight:h.cat==='traffic'?4:5,opacity:h.cat==='traffic'?.4:.85,dashArray:h.cat==='surf'?'3 7':null,interactive:false}).addTo(G.all);
   L.marker(h.pts[Math.floor(h.pts.length/2)],{icon:icon(h.cat),title:h.m}).addTo(G.all).bindPopup(`<b>${CATS[h.cat].t}</b><br>${esc(h.m)}`);
  }
 }
@@ -363,7 +432,7 @@ async function loadView(force){
  hint.textContent='Loading map symbols…';hint.classList.add('loading');hint.style.display='block';
  try{
   const els=await overpass(query(box,EXTRA(box)));
-  if(seq!==viewSeq)return;
+  if(seq!==viewSeq||S.routeMode)return;
   S.viewEls=els.map(classify).filter(Boolean).concat(reportsAsEls());S.fetched=pb;drawView();hint.classList.remove('loading');hint.style.display='none';
   if(S.place)placeSummary();
  }catch(e){
@@ -372,8 +441,8 @@ async function loadView(force){
   const brief=$('#brief');if(S.place&&brief)brief.innerHTML='<p class="sub">Map symbols could not load. Check your connection and tap Refresh area to try again.</p>';
  }
 }
-map.on('moveend',()=>{store.set('navaid_view2',{c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()});clearTimeout(vt);vt=setTimeout(()=>loadView(false),700)});$('#chips').innerHTML=GROUPS.map(([g,i])=>`<button class="chip" aria-pressed="true" data-g="${g}">${i} ${g}</button>`).join('');
-$$('.chip').forEach(c=>c.onclick=()=>{const g=c.dataset.g;if(hiddenG.has(g)){hiddenG.delete(g);c.setAttribute('aria-pressed','true')}else{hiddenG.add(g);c.setAttribute('aria-pressed','false')}drawView()});
+map.on('moveend',()=>{store.set('navaid_view2',{c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()});clearTimeout(vt);vt=setTimeout(()=>loadView(false),700)});$('#chips').innerHTML=GROUPS.map(([g,k])=>'<button class="chip" aria-pressed="true" data-g="'+g+'"><span class="chip-sym">'+symbol(k)+'</span> '+g+'</button>').join('');
+$$('.chip').forEach(c=>c.onclick=()=>{const g=c.dataset.g;if(hiddenG.has(g)){hiddenG.delete(g);c.setAttribute('aria-pressed','true')}else{hiddenG.add(g);c.setAttribute('aria-pressed','false')}if(S.routeMode){if(S.routes.length)drawRoute(false)}else drawView()});
 
 /* ---------- place sheet ---------- */
 function showPlace(p){
@@ -442,7 +511,7 @@ function build(r){
  const coords=r.geometry.coordinates.map(([lo,la])=>[la,lo]);
  const dense=densify(coords);
  const cum=[0];for(let i=1;i<dense.length;i++)cum[i]=cum[i-1]+dist(dense[i-1],dense[i]);
- const steps=r.legs.flatMap(l=>l.steps).map(s=>({text:instrText(s),ll:[s.maneuver.location[1],s.maneuver.location[0]]}));
+ const steps=r.legs.flatMap(l=>l.steps).map(s=>{const ll=[s.maneuver.location[1],s.maneuver.location[0]];return {text:instrText(s),ll,maneuver:s.maneuver,idx:nearestIdx(dense,ll)[0]}});
  return {dense,cum,dist:cum[cum.length-1],steps,matched:[],cost:0,raw:r.distance};
 }
 function nearestIdx(dense,p,from=0,win=1e9){let bi=-1,bd=1e12;const to=Math.min(dense.length,from+win);for(let i=from;i<to;i++){const d=dist(dense[i],p);if(d<bd){bd=d;bi=i}}return [bi,bd]}
@@ -452,18 +521,22 @@ function match(route,els){
  route.dense.forEach((p,i)=>{const [a,b]=cell(p);const k=a+','+b;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
  const out=[];
  for(const h of els){
-  const stride=Math.max(1,Math.ceil(h.pts.length/30));let best=null;
+  const stride=Math.max(1,Math.ceil(h.pts.length/200));let best=null,bestPoint=0,bestD=Infinity;
   for(let q=0;q<h.pts.length;q+=stride){
    const p=h.pts[q],[a,b]=cell(p);
-   for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const arr=grid.get((a+da)+','+(b+db));if(!arr)continue;for(const i of arr){if(dist(route.dense[i],p)<=20&&(best===null||i<best))best=i}}
+   for(let da=-3;da<=3;da++)for(let db=-3;db<=3;db++){
+    const arr=grid.get((a+da)+','+(b+db));if(!arr)continue;
+    for(const i of arr){const d=dist(route.dense[i],p);if(d<=(h.cat==='traffic'?25:65)&&d<bestD){best=i;bestPoint=q;bestD=d}}
+   }
   }
-  if(best!==null)out.push({h,idx:best,cost:costOf(h)});
+  if(best!==null)out.push({h,idx:best,hidx:bestPoint,distance:bestD,cost:costOf(h)});
  }
- return out.sort((x,y)=>x.idx-y.idx);
+ out.sort((x,y)=>x.idx-y.idx);
+ let lastT=-999;return out.filter(o=>{if(o.h.cat!=='traffic')return true;if(o.idx-lastT<15)return false;lastT=o.idx;return true});
 }
 async function getRoutes(){
- if(S.busy)return;S.busy=true;S.routeMode=true;G.all.clearLayers();
- openSheet(modeBar()+'<p class="sub" role="status">Finding routes and checking every metre for hazards…</p>');bindModes();
+ if(S.busy)return;S.busy=true;S.routeMode=true;S.noFit=false;G.all.clearLayers();if(activeOverpass)activeOverpass.abort();
+ openSheet(modeBar()+'<p class="sub" role="status">Finding routes and checking every metre for hazards… (can take up to 20 s on slow map servers)</p>');bindModes();
  try{
   const a=S.from.ll,b=S.to.ll;
   let cands=await osrm([a,b]);const total=cands[0].distance;
@@ -475,44 +548,100 @@ async function getRoutes(){
   const seen=new Set();cands=cands.filter(r=>{const k=Math.round(r.distance/15);if(seen.has(k)||r.distance>total*1.8)return false;seen.add(k);return true}).slice(0,5);
   const routes=cands.map(build);const minD=Math.min(...routes.map(r=>r.raw));
   routes.forEach(r=>r.shortest=r.raw===minD);
-  const gap=Math.max(120,routes.reduce((s,r)=>s+r.dense.length*8,0)/450);
-  const pl=routes.flatMap(r=>simplify(r.dense,gap)).map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(',');
-  let els=[],warn='';
-  try{const A=`(around:22,${pl})`;els=(await overpass(query(A))).map(classify).filter(Boolean)}catch(e){warn='Hazard data could not load, so these routes are distance-only.'}
-  els=els.concat(reportsAsEls());
-  routes.forEach(r=>{r.matched=match(r,els);const hz=r.matched.reduce((s,m)=>s+m.cost,0);r.hz=hz;r.cost=r.dist+hz;r.score=Math.max(0,Math.round(100*(1-hz/(hz+Math.max(r.dist,400)*.6))))});
-  routes.sort((x,y)=>x.cost-y.cost);
-  S.routes=routes;S.sel=0;S.warn=warn;renderRoutes();
+  const gap=40;
+  routes.sort((x,y)=>x.raw-y.raw);
+  const mine=routes.slice(0,total>10000?2:5);S.routes=mine;S.sel=0;S.noFit=false;S.scan='scanning';viewSeq++;
+  S.warn='Route ready. Scanning for hazards along it; markers appear as they load.';
+  renderRoutes();S.noFit=true;
+  scanRoutes(mine,gap);
  }catch(e){openSheet(modeBar()+`<p class="err">${esc(e.message)}</p>`);bindModes()}
  S.busy=false;
+}
+const bboxOf=pts=>{let s=90,w=180,n=-90,e=-180;pts.forEach(p=>{s=Math.min(s,p[0]);n=Math.max(n,p[0]);w=Math.min(w,p[1]);e=Math.max(e,p[1])});const d=.0008;return `(${(s-d).toFixed(5)},${(w-d).toFixed(5)},${(n+d).toFixed(5)},${(e+d).toFixed(5)})`};
+function scoreRoute(r){const hz=r.matched.reduce((s,m)=>s+m.cost,0);r.hz=hz;r.cost=r.dist+hz;r.score=Math.max(0,Math.round(100*(1-hz/(hz+Math.max(r.dist,400)*.6))))}
+async function runChunks(list,mk,ms,onEach){
+ const q=list.slice();let failed=0,done=0,ok=0,err='',stop=false;
+ const worker=async()=>{while(q.length&&!stop){const line=q.shift();
+  try{onEach(await overpass(mk(line),ms));ok++}
+  catch(e){failed++;err=(e&&e.message)||String(e);if(!ok&&failed>=2)stop=true}
+  done++;if(!onEach.progress(done,list.length))stop=true}};
+ await worker();return {ok,failed,err,skipped:q.length};
+}
+async function scanRoutes(mine,gap){
+ const CS=.012,seenC=new Set(),chunks=[];
+ mine.forEach(r=>{simplify(r.dense,60).forEach(p=>{const ca=Math.floor(p[0]/CS),cb=Math.floor(p[1]/CS),k=ca+','+cb;if(seenC.has(k))return;seenC.add(k);const d=.0008;chunks.push(`(${(ca*CS-d).toFixed(5)},${(cb*CS-d).toFixed(5)},${((ca+1)*CS+d).toFixed(5)},${((cb+1)*CS+d).toFixed(5)})`)})});
+ chunks.length=Math.min(chunks.length,40);
+ const alive=()=>S.routes===mine,t0=Date.now(),late=()=>Date.now()-t0>300000;
+ const found=new Map();
+ const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);scoreRoute(r)})};
+ const each=data=>{for(const el of data||[])found.set(el.type+'/'+el.id,el)};
+ let label='';
+ each.progress=(d,t)=>{if(!alive())return false;S.warn=`Scanning ${label} (${d}/${t} sections)…`;apply();renderRoutes();return !late()};
+ const tot={ok:0,failed:0,err:'',skipped:0};
+ for(const [lb,mk] of [['stairs, crossings, ramps, rough ground, traffic',box=>query(box,'way'+box+'["highway"~"^(trunk|primary|secondary)$"];')]]){
+  label=lb;let res;
+  try{res=await runChunks(chunks,mk,60000,each)}catch(e){res={ok:0,failed:chunks.length,err:e.message,skipped:0}}
+  if(!alive())return;
+  tot.ok+=res.ok;tot.failed+=res.failed;tot.skipped+=res.skipped;if(res.err)tot.err=res.err;
+  if(res.ok===0||late())break;
+ }
+ const allFail=tot.ok===0;if(allFail&&!tot.err)tot.err='Scan took too long';
+ S.scan=allFail?'failed':'done';apply();mine.sort((x,y)=>x.cost-y.cost);S.sel=0;
+ const retry='<button class="btn alt" id="rescan" style="padding:6px 14px;margin-left:6px">Retry scan</button>';
+ S.warn=allFail?'Hazard scan failed. <small>'+esc(tot.err)+'</small> Routes are shown without access markers. <span id="pingBox"><i>Testing map servers…</i></span> '+retry
+  :tot.failed?`${tot.failed} sections could not be scanned (<small>${esc(tot.err)}</small>). Showing the markers that did load. ${retry}`
+  :tot.skipped?'Scan stopped early, showing hazards found so far. '+retry
+  :chunks.length>=40?'Only the first 40 map tiles (~50 km) were scanned.':'';
+ renderRoutes();
+ if(allFail){const p=await pingServers().catch(()=>'ping failed');if(alive()){S.warn=S.warn.replace('<span id="pingBox"><i>Testing map servers…</i></span>','<br><small><b>Server test:</b> '+esc(p)+'</small>'+(/429/.test(p+S.warn)?'<br><b>HTTP 429 = the map server is rate-limiting this connection.</b> Wait 3 to 5 minutes without pressing anything, then tap Retry. The app now sends far fewer requests and remembers results.':'')+'<br><small>If all say "no reply" or "blocked": switch to mobile data / another Wi-Fi, turn off VPN or ad-blocker, wait 5 minutes and retry.</small>');renderRoutes()}return}
 }
 function counts(r){const c={};r.matched.forEach(m=>{if(!GOOD.has(m.h.cat))c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
 function renderRoutes(){
  const rs=S.routes,r=rs[S.sel],sh=rs.find(x=>x.shortest);
  let h=modeBar();
  if(S.warn)h+=`<div class="warn">${S.warn}</div>`;
+ if(!S.warn&&rs.every(x=>x.matched.length===0))h+='<div class="warn">OpenStreetMap has no accessibility or hazard tags along these routes. The accessibility score is unavailable; the suggested route is ordered by distance. Use 🕳 Report to add a local hazard.</div>';
  if(rs[0].dist>P.maxKm*1000)h+=`<div class="warn">${km(rs[0].dist)} is a long walk. Consider the metro or an accessible cab for part of it.</div>`;
- h+=rs.map((x,i)=>{const c=counts(x),l=Object.entries(c).map(([k,n])=>`${CATS[k].i} ${n}`).join('  ')||'No obstacles mapped';
-  return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${x.score}</span>${i===0?'<span class="tag">Most accessible</span>':''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}).join('');
+ h+=rs.map((x,i)=>{const c=counts(x),l=Object.entries(c).map(([k,n])=>`${CATS[k].i} ${n}`).join('  ')||(x.matched.length?'No route hazards tagged':S.scan==='failed'?'Access scan failed':S.scan==='scanning'?'Scanning…':'No access data tagged');
+  return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${rs.every(y=>y.matched.length===0)?'—':x.score}</span>${i===0?`<span class="tag">${rs.every(y=>y.matched.length===0)?'Suggested route':'Most accessible'}</span>`:''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}).join('');
  if(sh&&sh!==rs[0])h+=`<p class="sub">Most accessible is ${km(rs[0].dist-sh.dist)} longer than the shortest and avoids ${Math.max(0,sh.matched.filter(m=>m.cost>=150).length-rs[0].matched.filter(m=>m.cost>=150).length)} serious obstacle(s).</p>`;
- h+=`<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div><h3 style="margin:6px 0 0">Along this route</h3><ul class="l">`+
-  (r.matched.length?r.matched.map(m=>`<li><span>${CATS[m.h.cat].i}</span><span><b>${km(r.cum[m.idx])}</b> ${esc(m.h.m)}${!GOOD.has(m.h.cat)&&m.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':''}</span></li>`).join(''):'<li>Nothing mapped along this path.</li>')+'</ul>';
+ h+=routeSummary(r);
+ h+='<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div>';
+ const gUrl='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(S.from.ll.join(','))+'&destination='+encodeURIComponent(S.to.ll.join(','))+'&travelmode=walking';
+ h+='<a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="'+gUrl+'">Open walking route in Google Maps ↗</a>';
+ h+='<h3 style="margin:6px 0 0">Turn-by-turn &amp; access details</h3><ul class="l">';
+ const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(r.matched.map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
+ h+=events.length?events.map(e=>'<li><span>'+e.icon+'</span><span><b>'+km(r.cum[e.idx])+'</b> '+esc(e.text)+(e.obstacle&&!GOOD.has(e.obstacle.h.cat)&&e.obstacle.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':'')+'</span></li>').join(''):'<li>No route steps are available.</li>';
  openSheet(h);bindModes();
  $$('.rc').forEach(b=>b.onclick=()=>{S.sel=+b.dataset.i;renderRoutes()});
- $('#goNav').onclick=()=>startNav(false);$('#goSim').onclick=()=>startNav(true);
+ if($('#rescan'))$('#rescan').onclick=()=>{S.routes=[];maybeRoute()};bindSummary(r);$('#goNav').onclick=()=>startNav(false);$('#goSim').onclick=()=>startNav(true);
  drawRoute();
 }
-function drawRoute(){
+function routeSummary(r){
+ const g={};GROUPS.forEach(([n])=>g[n]=0);
+ r.matched.forEach(m=>{const n=CATS[m.h.cat].g;if(n in g)g[n]++});
+ return '<h3 style="margin:10px 0 2px">On this route (tap to jump)</h3><div class="ct">'+GROUPS.map(([n,k])=>`<button class="qp" data-rg="${n}" ${g[n]?'':'disabled'} style="opacity:${g[n]?1:.5}"><span class="chip-sym">${symbol(k)}</span> <b>${g[n]}</b> ${n}</button>`).join('')+'</div><p class="sub">Potholes only show if mapped or reported (🕳 button). Traffic = busy roads beside the route.</p>';
+}
+function bindSummary(r){
+ $$('[data-rg]').forEach(b=>b.onclick=()=>{
+  const m=r.matched.find(x=>CATS[x.h.cat].g===b.dataset.rg);if(!m)return;
+  const p=m.h.pts[m.hidx??0]||m.h.pts[0];
+  if(hiddenG.has(b.dataset.rg)){hiddenG.delete(b.dataset.rg);$$('.chip').forEach(c=>{if(c.dataset.g===b.dataset.rg)c.setAttribute('aria-pressed','true')});drawRoute(false)}
+  map.setView(p,18);L.popup().setLatLng(p).setContent('<b>'+CATS[m.h.cat].t+'</b><br>'+esc(m.h.m)+'<br>'+km(r.cum[m.idx])+' from start').openOn(map);
+ });
+}
+function drawRoute(fit=true){
  G.route.clearLayers();G.pins.clearLayers();
  pin(S.from.ll,'A','#10243A').addTo(G.pins);pin(S.to.ll,'B','#6A3DE8').addTo(G.pins);
  S.routes.forEach((r,i)=>{if(i!==S.sel)L.polyline(r.dense,{color:'#6B7F92',weight:6,opacity:.6,dashArray:'6 8'}).addTo(G.route).on('click',()=>{S.sel=i;renderRoutes()})});
  const r=S.routes[S.sel];
  L.polyline(r.dense,{color:'#fff',weight:12}).addTo(G.route);
  const line=L.polyline(r.dense,{color:'#0E7C86',weight:7}).addTo(G.route);
- r.matched.forEach(m=>{const h=m.h;
-  if(h.line)L.polyline(h.pts,{color:CATS[h.cat].c,weight:6,opacity:.9,interactive:false}).addTo(G.route);
-  L.marker(h.pts[Math.floor(h.pts.length/2)],{icon:icon(h.cat)}).addTo(G.route).bindPopup(`<b>${CATS[h.cat].t}</b><br>${esc(h.m)}<br>${km(r.cum[m.idx])} from start`)});
- if(!document.body.classList.contains('nav'))map.fitBounds(line.getBounds().pad(.15),{paddingBottomRight:[0,innerWidth<820?innerHeight*.45:0],paddingTopLeft:[innerWidth>=820?430:0,innerWidth<820?140:0]});
+ r.matched.forEach(m=>{const h=m.h;if(hiddenG.has(CATS[h.cat].g))return;
+  if(h.line&&h.cat!=='traffic')L.polyline(h.pts,{color:CATS[h.cat].c,weight:6,opacity:.9,interactive:false}).addTo(G.route);
+  const accessPoint=h.pts[m.hidx??Math.floor(h.pts.length/2)]||h.pts[0];L.marker(accessPoint,{icon:icon(h.cat),title:CATS[h.cat].t}).addTo(G.route).bindPopup('<b>'+CATS[h.cat].t+'</b><br>'+esc(h.m)+'<br>'+km(r.cum[m.idx])+' from start');
+ });
+ if(fit&&!S.noFit&&!document.body.classList.contains('nav'))map.fitBounds(line.getBounds().pad(.15),{paddingBottomRight:[0,innerWidth<820?innerHeight*.45:0],paddingTopLeft:[innerWidth>=820?430:0,innerWidth<820?140:0]});
 }
 
 /* ---------- navigation ---------- */
