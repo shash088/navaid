@@ -304,7 +304,7 @@ way${A}["highway"]["surface"~"^(unpaved|gravel|dirt|ground|sand|grass|cobbleston
 way${A}["highway"]["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];
 way${A}["highway"]["smoothness"~"^(bad|very_bad|horrible|very_horrible|impassable)$"];
 way${A}["highway"~"^(footway|path|pedestrian)$"]["width"];way${A}["highway"~"^(footway|path|pedestrian)$"]["width:clearance"];way${A}["highway"~"^(footway|path|pedestrian)$"]["narrow"="yes"];
-node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];node${A}["hazard"];way${A}["highway"]["hazard"];node${A}["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];${extra||''}
+node${A}["traffic_calming"~"^(hump|bump|table|cushion)$"];node${A}["hazard"];way${A}["highway"]["hazard"];node${A}["surface:condition"~"(pothole|rough|bad|uneven|damaged)"];way${A}["highway"]["sidewalk"~"^(no|none)$"];way${A}["highway"="construction"];way${A}["highway"="track"];${extra||''}
 );out geom tags;`}
 const trafficQuery=A=>`[out:json][timeout:15];way${A}["highway"~"^(trunk|primary|secondary)$"];out geom tags;`;
 const SURF='^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$';
@@ -347,15 +347,65 @@ async function overpassRaw(q,ms){
  }finally{clearTimeout(outer);if(activeOverpass===handle)activeOverpass=null}
 }
 let ovpLast=0,ovpChain=Promise.resolve();
-const OC='navaid_ovp_cache1';
+const OC='navaid_ovp_cache2';
 const cacheGet=q=>{const e=store.get(OC,{})[q];return e&&Date.now()-e.t<864e5?e.d:null};
 const cachePut=(q,d)=>{const c=store.get(OC,{});c[q]={t:Date.now(),d};const ks=Object.keys(c);if(ks.length>25)ks.sort((x,y)=>c[x].t-c[y].t).slice(0,ks.length-25).forEach(k=>delete c[k]);store.set(OC,c)};
-function overpass(q,ms=60000){
- const hit=cacheGet(q);if(hit)return Promise.resolve(hit);
- const p=ovpChain.then(async()=>{const w=ovpLast+1500-Date.now();if(w>0)await sleep(w);try{const d=await overpassRaw(q,ms);cachePut(q,d);return d}finally{ovpLast=Date.now()}});
+function paced(fn){
+ const p=ovpChain.then(async()=>{const w=ovpLast+1300-Date.now();if(w>0)await sleep(w);try{return await fn()}finally{ovpLast=Date.now()}});
  ovpChain=p.catch(()=>{});return p;
 }
+function overpass(q,ms=60000){
+ const hit=cacheGet(q);if(hit)return Promise.resolve(hit);
+ return paced(async()=>{const d=await overpassRaw(q,ms);cachePut(q,d);return d});
+}
+let ovpDownUntil=0,osmCount=0;
+function osmToEls(j){
+ const nd=new Map(),out=[];
+ for(const e of j.elements||[])if(e.type==='node'){nd.set(e.id,[e.lat,e.lon]);if(e.tags)out.push({type:'node',id:e.id,lat:e.lat,lon:e.lon,tags:e.tags})}
+ for(const e of j.elements||[])if(e.type==='way'&&e.tags){const g=(e.nodes||[]).map(i=>nd.get(i)).filter(Boolean).map(p=>({lat:p[0],lon:p[1]}));if(g.length)out.push({type:'way',id:e.id,tags:e.tags,geometry:g})}
+ return out.filter(el=>classify(el));
+}
+async function osmApiTile(box,depth=0){
+ const key='osm:'+box,c=cacheGet(key);if(c)return c;
+ const [s,w,n,e]=box.match(/-?\d+(?:\.\d+)?/g).map(Number);
+ const url=`https://api.openstreetmap.org/api/0.6/map.json?bbox=${w},${s},${e},${n}`;
+ let out;
+ try{out=await paced(async()=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),35000);
+  try{const r=await fetch(url,{signal:ac.signal});return {status:r.status,data:r.status===200?await r.json():null}}finally{clearTimeout(tm)}})}
+ catch(e){throw new Error('OpenStreetMap API did not reply ('+(e.name==='AbortError'?'timeout':'blocked/unreachable')+')')}
+ if(out.status===200){const els=osmToEls(out.data);cachePut(key,els);return els}
+ if(out.status===400&&depth<2){
+  const mi=(s+n)/2,mj=(w+e)/2,f=v=>v.toFixed(5);
+  const parts=[`(${f(s)},${f(w)},${f(mi)},${f(mj)})`,`(${f(s)},${f(mj)},${f(mi)},${f(e)})`,`(${f(mi)},${f(w)},${f(n)},${f(mj)})`,`(${f(mi)},${f(mj)},${f(n)},${f(e)})`];
+  const res=[];for(const p of parts)res.push(...await osmApiTile(p,depth+1));
+  cachePut(key,res);return res;
+ }
+ throw new Error('OpenStreetMap API HTTP '+out.status+(out.status===509||out.status===429?' (bandwidth limit, wait a few minutes)':''));
+}
+async function fetchArea(box,extra,cap=false){
+ if(Date.now()>ovpDownUntil){
+  try{return await overpass(query(box,extra),20000)}catch(e){ovpDownUntil=Date.now()+600000}
+ }
+ S.osmMode=true;
+ if(cap&&osmCount>=12){S.osmCapped=true;return []}
+ osmCount++;
+ return osmApiTile(box);
+}
+const tileData=box=>fetchArea(box,'way'+box+'["highway"~"^(trunk|primary|secondary)$"];');
+async function fetchNotes(mine){
+ let s=90,w=180,n=-90,e=-180;
+ mine.forEach(r=>r.dense.forEach(p=>{s=Math.min(s,p[0]);n=Math.max(n,p[0]);w=Math.min(w,p[1]);e=Math.max(e,p[1])}));
+ const d=.004,key='notes:'+[s,w,n,e].map(v=>v.toFixed(3)).join(','),c=cacheGet(key);if(c)return c;
+ const url=`https://api.openstreetmap.org/api/0.6/notes.json?bbox=${(w-d).toFixed(5)},${(s-d).toFixed(5)},${(e+d).toFixed(5)},${(n+d).toFixed(5)}&limit=1500&closed=0`;
+ const j=await paced(async()=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),25000);try{const r=await fetch(url,{signal:ac.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(tm)}});
+ const els=(j.features||[]).map(f=>({type:'note',id:f.properties.id,lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],text:(f.properties.comments||[]).map(x=>x.text).join(' ')})).filter(el=>classify(el));
+ cachePut(key,els);return els;
+}
 function classify(e){
+ if(e.type==='note'){const x=e.text||'';let c=null;
+  if(/pothole|potholes|गड्ढ|खड्ड/i.test(x))c='pothole';
+  else if(/(broken|damaged|bad|uneven|missing|collapsed)\s+(road|footpath|pavement|sidewalk|slab|tiles?)|waterlog|open (drain|manhole)|manhole|no ramp|ramp (is )?missing|inaccessible|blocked (footpath|sidewalk|pavement)|encroach/i.test(x))c='hazard';
+  return c?{cat:c,m:'Reported on OpenStreetMap: '+x.replace(/\s+/g,' ').slice(0,140),pts:[[e.lat,e.lon]],line:false,tags:{},note:true}:null}
  const t=e.tags||{};
  const pts=e.type==='node'?[[e.lat,e.lon]]:(e.geometry||[]).map(g=>[g.lat,g.lon]);
  if(!pts.length)return null;
@@ -383,6 +433,9 @@ function classify(e){
  else if((t.surface&&/^(unpaved|gravel|dirt|ground|sand|grass|cobblestone|sett|pebblestone|mud|earth|compacted|fine_gravel|unhewn_cobblestone)$/.test(t.surface))||t.smoothness){cat='surf';m='Surface: '+(t.surface||'unknown')+(t.smoothness?' ('+t.smoothness+' smoothness)':'')}
  else if(t.narrow==='yes'||[t.width,t['width:clearance']].some(w=>Number.isFinite(parseFloat(w))&&parseFloat(w)<1.2)){cat='narrow';m='Narrow path'+(t.width?' ('+t.width+' m)':t['width:clearance']?' (clearance '+t['width:clearance']+' m)':' (tagged narrow)')}
  else if(t.traffic_calming){cat='calm';m='Speed bump'}
+ else if(t.highway&&/^(no|none)$/.test(t.sidewalk||t['sidewalk:both']||'')){cat='traffic';m='No footpath mapped'+(t.name?' on '+t.name:'')+': you may have to walk on the road'}
+ else if(t.highway==='construction'||t.construction){cat='barrier';m='Road or path under construction'}
+ else if(t.highway==='track'){cat='surf';m='Track: usually unpaved'+(t.tracktype?' ('+t.tracktype+')':'')}
  else if(/^(trunk|primary|secondary)$/.test(t.highway||'')){cat='traffic';m='Busy road ('+t.highway+')'+(t.name?' · '+t.name:'')+', expect vehicles beside the route'}
  else return null;
  return {cat,m,pts,line:e.type==='way',tags:t,slope};
@@ -402,7 +455,7 @@ function costOf(h){
   case 'wcNo':return mode==='wheel'||mode==='all'?1500:200;
   case 'traffic':return 40;
   case 'report':return 450;
-  case 'pothole':return 1800;
+  case 'pothole':return h.note?450:1800;
   case 'hazard':return 300;
   default:return 0;
  }
@@ -431,7 +484,7 @@ async function loadView(force){
  const seq=++viewSeq,pb=b.pad(.25),box=`(${pb.getSouth().toFixed(5)},${pb.getWest().toFixed(5)},${pb.getNorth().toFixed(5)},${pb.getEast().toFixed(5)})`;
  hint.textContent='Loading map symbols…';hint.classList.add('loading');hint.style.display='block';
  try{
-  const els=await overpass(query(box,EXTRA(box)));
+  const els=await fetchArea(box,EXTRA(box));
   if(seq!==viewSeq||S.routeMode)return;
   S.viewEls=els.map(classify).filter(Boolean).concat(reportsAsEls());S.fetched=pb;drawView();hint.classList.remove('loading');hint.style.display='none';
   if(S.place)placeSummary();
@@ -562,7 +615,7 @@ function scoreRoute(r){const hz=r.matched.reduce((s,m)=>s+m.cost,0);r.hz=hz;r.co
 async function runChunks(list,mk,ms,onEach){
  const q=list.slice();let failed=0,done=0,ok=0,err='',stop=false;
  const worker=async()=>{while(q.length&&!stop){const line=q.shift();
-  try{onEach(await overpass(mk(line),ms));ok++}
+  try{onEach(await mk(line));ok++}
   catch(e){failed++;err=(e&&e.message)||String(e);if(!ok&&failed>=2)stop=true}
   done++;if(!onEach.progress(done,list.length))stop=true}};
  await worker();return {ok,failed,err,skipped:q.length};
@@ -570,28 +623,31 @@ async function runChunks(list,mk,ms,onEach){
 async function scanRoutes(mine,gap){
  const CS=.012,seenC=new Set(),chunks=[];
  mine.forEach(r=>{simplify(r.dense,60).forEach(p=>{const ca=Math.floor(p[0]/CS),cb=Math.floor(p[1]/CS),k=ca+','+cb;if(seenC.has(k))return;seenC.add(k);const d=.0008;chunks.push(`(${(ca*CS-d).toFixed(5)},${(cb*CS-d).toFixed(5)},${((ca+1)*CS+d).toFixed(5)},${((cb+1)*CS+d).toFixed(5)})`)})});
- chunks.length=Math.min(chunks.length,40);
- const alive=()=>S.routes===mine,t0=Date.now(),late=()=>Date.now()-t0>300000;
+ chunks.length=Math.min(chunks.length,150);
+ {const o=[];let i=0,j=chunks.length-1;while(i<=j){o.push(chunks[i++]);if(i<=j)o.push(chunks[j--])}chunks.splice(0,chunks.length,...o)}
+ const alive=()=>S.routes===mine,t0=Date.now(),late=()=>Date.now()-t0>1500000;
  const found=new Map();
  const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);scoreRoute(r)})};
  const each=data=>{for(const el of data||[])found.set(el.type+'/'+el.id,el)};
  let label='';
- each.progress=(d,t)=>{if(!alive())return false;S.warn=`Scanning ${label} (${d}/${t} sections)…`;apply();renderRoutes();return !late()};
+ each.progress=(d,t)=>{if(!alive())return false;S.warn=`Scanning ${S.osmMode?'via OpenStreetMap API, Overpass is down':label} (${d}/${t} sections)…`;apply();renderRoutes();return !late()};
  const tot={ok:0,failed:0,err:'',skipped:0};
- for(const [lb,mk] of [['stairs, crossings, ramps, rough ground, traffic',box=>query(box,'way'+box+'["highway"~"^(trunk|primary|secondary)$"];')]]){
+ S.osmMode=false;S.osmCapped=false;osmCount=0;
+ for(const [lb,mk] of [['stairs, crossings, ramps, rough ground, traffic',tileData]]){
   label=lb;let res;
   try{res=await runChunks(chunks,mk,60000,each)}catch(e){res={ok:0,failed:chunks.length,err:e.message,skipped:0}}
   if(!alive())return;
   tot.ok+=res.ok;tot.failed+=res.failed;tot.skipped+=res.skipped;if(res.err)tot.err=res.err;
   if(res.ok===0||late())break;
  }
+ try{(await fetchNotes(mine)).forEach(n=>found.set('note/'+n.id,n))}catch(e){}
  const allFail=tot.ok===0;if(allFail&&!tot.err)tot.err='Scan took too long';
  S.scan=allFail?'failed':'done';apply();mine.sort((x,y)=>x.cost-y.cost);S.sel=0;
  const retry='<button class="btn alt" id="rescan" style="padding:6px 14px;margin-left:6px">Retry scan</button>';
  S.warn=allFail?'Hazard scan failed. <small>'+esc(tot.err)+'</small> Routes are shown without access markers. <span id="pingBox"><i>Testing map servers…</i></span> '+retry
   :tot.failed?`${tot.failed} sections could not be scanned (<small>${esc(tot.err)}</small>). Showing the markers that did load. ${retry}`
   :tot.skipped?'Scan stopped early, showing hazards found so far. '+retry
-  :chunks.length>=40?'Only the first 40 map tiles (~50 km) were scanned.':'';
+  :(S.osmMode?'Overpass servers are down right now, so access data came from the main OpenStreetMap API'+''+'.':(chunks.length>=150?'Only the first 150 map tiles (~190 km) were scanned.':''));
  renderRoutes();
  if(allFail){const p=await pingServers().catch(()=>'ping failed');if(alive()){S.warn=S.warn.replace('<span id="pingBox"><i>Testing map servers…</i></span>','<br><small><b>Server test:</b> '+esc(p)+'</small>'+(/429/.test(p+S.warn)?'<br><b>HTTP 429 = the map server is rate-limiting this connection.</b> Wait 3 to 5 minutes without pressing anything, then tap Retry. The app now sends far fewer requests and remembers results.':'')+'<br><small>If all say "no reply" or "blocked": switch to mobile data / another Wi-Fi, turn off VPN or ad-blocker, wait 5 minutes and retry.</small>');renderRoutes()}return}
 }
@@ -609,6 +665,7 @@ function renderRoutes(){
  h+='<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div>';
  const gUrl='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(S.from.ll.join(','))+'&destination='+encodeURIComponent(S.to.ll.join(','))+'&travelmode=walking';
  h+='<a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="'+gUrl+'">Open walking route in Google Maps ↗</a>';
+ {const mp=r.dense[Math.floor(r.dense.length/2)];h+='<a class="btn alt" style="display:inline-block;text-decoration:none;margin-top:8px" target="_blank" rel="noopener" href="https://www.google.com/maps/@'+mp[0].toFixed(5)+','+mp[1].toFixed(5)+',14z/data=!5m1!1e1">See live traffic on Google Maps ↗</a>'}
  h+='<h3 style="margin:6px 0 0">Turn-by-turn &amp; access details</h3><ul class="l">';
  const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(r.matched.map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
  h+=events.length?events.map(e=>'<li><span>'+e.icon+'</span><span><b>'+km(r.cum[e.idx])+'</b> '+esc(e.text)+(e.obstacle&&!GOOD.has(e.obstacle.h.cat)&&e.obstacle.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':'')+'</span></li>').join(''):'<li>No route steps are available.</li>';
