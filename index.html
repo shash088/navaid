@@ -40,6 +40,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #dirHead button{border:0;background:#EEF3F7;border-radius:50%;width:36px;height:36px}
 body.dir #dirbar{display:flex}body.dir #sb1{display:none}
 body.nav #top{display:none}
+body:not(.active) #chips{display:none!important}
 #chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
 #chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:0;background:#fff;border-radius:99px;padding:8px 14px;box-shadow:var(--shadow);font-weight:700;font-size:14px;white-space:nowrap}
@@ -78,7 +79,7 @@ ul.l li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);
 body.nav #nb{display:block}
 #nb .big{font-size:1.5rem;font-weight:700;line-height:1.2}
 #nb .al{margin-top:8px;background:#FFE9EC;color:#6a0016;border-radius:8px;padding:8px 10px;font-weight:700;display:none}
-.mk{width:34px;height:34px;border-radius:3px;display:grid;place-items:center;box-shadow:0 2px 7px #0005;color:#fff}
+.mk{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;box-shadow:0 2px 7px #0005;color:#fff}
 .me{width:20px;height:20px;border-radius:50%;background:#2563EB;border:4px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.4)}
 .leaflet-control-zoom{display:none}
 .leaflet-popup-content button{margin:3px 2px}
@@ -99,7 +100,7 @@ body.nav #nb{display:block}
  .leaflet-control-zoom{display:block}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
- .mk .sym{width:26px;height:26px;display:block;stroke:#fff;fill:none;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round}.chip-sym{width:24px;height:24px;background:#df2029;border-radius:3px;display:inline-grid;place-items:center;vertical-align:-7px;margin-right:4px}.chip .sym{width:18px;height:18px;display:block;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+ .mk .sym{width:20px;height:20px;display:block;stroke:#fff;fill:none;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round}.chip-sym{width:24px;height:24px;background:#df2029;border-radius:3px;display:inline-grid;place-items:center;vertical-align:-7px;margin-right:4px}.chip .sym{width:18px;height:18px;display:block;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
 </head>
 <body>
 <div id="map" role="application" aria-label="Accessibility map"></div>
@@ -129,6 +130,7 @@ body.nav #nb{display:block}
  <button class="fab" id="repBtn" aria-label="Report a hazard" title="Report a hazard">🕳</button>
  <button class="fab" id="chatBtn" aria-label="Open support chat" title="Support chat">💬</button>
  <button class="fab sos" id="sosBtn" aria-label="Emergency help" title="Emergency help">🆘</button>
+ <button class="fab" id="langBtn" aria-label="Language: English or Hindi" title="हिन्दी / English" style="font-size:16px;font-weight:700">हि</button>
  <button class="fab" id="locBtn" aria-label="My location" title="My location">◎</button>
 </div>
 <div class="box" id="sheet" hidden><div id="grab"></div><div id="sb"></div></div>
@@ -139,6 +141,45 @@ body.nav #nb{display:block}
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+
+/* ---------- language: English / Hindi (toggle button, reloads page) ---------- */
+const LANG=store.get('navaid_lang','en');
+const HI={
+'Search any place':'कोई भी जगह खोजें','Search a place':'जगह खोजें','Clear':'साफ़ करें','Directions':'रास्ता','Accessible directions':'सुलभ रास्ता','Start (or tap ◎)':'शुरुआत (या ◎ दबाएँ)','Destination':'गंतव्य','Swap':'अदला-बदली','Use my location':'मेरी लोकेशन','Close directions':'रास्ता बंद करें','Report a hazard':'खतरे की रिपोर्ट करें','Open support chat':'सहायता चैट खोलें','Support chat':'सहायता चैट','Emergency help':'आपातकालीन मदद','Emergency SOS':'आपातकालीन SOS','My location':'मेरी लोकेशन','Show on map':'नक्शे पर दिखाएँ','Zoom in to see hazards':'खतरे देखने के लिए ज़ूम करें','Zoom in closer to see mapped access symbols':'पहुँच के चिह्न देखने के लिए और ज़ूम करें','Loading map symbols…':'नक्शे के चिह्न लोड हो रहे हैं…','Loading map':'नक्शा लोड हो रहा है',
+'Steps':'सीढ़ियाँ','Raised kerb':'ऊँचा किनारा','Crossing, no signal':'क्रॉसिंग, सिग्नल नहीं','Signal crossing':'सिग्नल क्रॉसिंग','Elevator':'लिफ्ट','Ramp or dropped kerb':'रैंप या नीचा किनारा','Rough surface':'खुरदरी सतह','Narrow path':'संकरा रास्ता','Slope / incline':'ढलान','Barrier':'बाधा','Speed bump':'स्पीड ब्रेकर','Not wheelchair accessible':'व्हीलचेयर के लिए सुलभ नहीं','Reported hazard':'रिपोर्ट किया गया खतरा','Pothole / uneven surface':'गड्ढा / ऊबड़-खाबड़ सतह','Toilets':'शौचालय','Busy road / traffic':'व्यस्त सड़क / ट्रैफिक','Station or stop':'स्टेशन या स्टॉप','Marked hazard':'चिह्नित खतरा',
+'Ramps and lifts':'रैंप और लिफ्ट','Crossings':'क्रॉसिंग','Rough ground':'ऊबड़-खाबड़ ज़मीन','Narrow and barriers':'संकरा और बाधाएँ','Slopes':'ढलान','Kerbs':'किनारे','Traffic':'ट्रैफिक','Potholes':'गड्ढे','Facilities':'सुविधाएँ',
+'All needs':'सभी ज़रूरतें','Wheelchair':'व्हीलचेयर','Walking aid':'चलने में सहायक','Blind or low vision':'दृष्टिहीन / कम दृष्टि','Deaf / hard of hearing':'बधिर / कम सुनना','Cognitive / sensory needs':'संज्ञानात्मक / संवेदी ज़रूरतें','Limited stamina / fatigue':'कम सहनशक्ति / थकान','Temporary injury':'अस्थायी चोट',
+'Explore Delhi and Uttar Pradesh':'दिल्ली और उत्तर प्रदेश देखें','Search for any place in India, or tap one below. Zoom in to see steps, slopes, crossings and hazards.':'भारत में कोई भी जगह खोजें या नीचे से चुनें। सीढ़ियाँ, ढलान, क्रॉसिंग और खतरे देखने के लिए ज़ूम करें।','Route profiles:':'रूट प्रोफ़ाइल:','wheelchair, walking aid, blind/low vision, deaf/hard of hearing, sensory needs, limited stamina, and temporary injury.':'व्हीलचेयर, चलने में सहायक, दृष्टिहीन/कम दृष्टि, बधिर/कम सुनना, संवेदी ज़रूरतें, कम सहनशक्ति और अस्थायी चोट।',
+'Scanning the area for steps, slopes, crossings, ramps and hazards…':'सीढ़ियों, ढलानों, क्रॉसिंग, रैंप और खतरों के लिए इलाका स्कैन हो रहा है…','Within':'पास में','Nothing mapped here yet.':'यहाँ अभी कुछ नक्शे पर नहीं है।','Data is from OpenStreetMap volunteers. Not mapped does not mean safe.':'डेटा OpenStreetMap स्वयंसेवकों से है। नक्शे पर न होने का मतलब सुरक्षित नहीं है।','Refresh area':'इलाका रीफ़्रेश करें','steps and':'सीढ़ियाँ और','steep slopes nearby.':'तीखी ढलानें पास में हैं।','ramps or lifts are mapped.':'रैंप या लिफ्ट नक्शे पर हैं।',
+'Choose a start and destination.':'शुरुआत और गंतव्य चुनें।','Finding routes and checking every metre for hazards… (can take up to 20 s on slow map servers)':'रास्ते खोजे जा रहे हैं और हर मीटर पर खतरे जाँचे जा रहे हैं…','Route ready. Scanning for hazards along it; markers appear as they load.':'रास्ता तैयार है। खतरे स्कैन हो रहे हैं; चिह्न लोड होते ही दिखेंगे।','Scanning':'स्कैन हो रहा है','Retry scan':'स्कैन फिर करें',
+'Most accessible':'सबसे सुलभ','Shortest':'सबसे छोटा','Suggested route':'सुझाया रास्ता','Scanning…':'स्कैन हो रहा है…','No access data tagged':'पहुँच का डेटा नहीं','No route hazards tagged':'रास्ते पर कोई खतरा दर्ज नहीं','Access scan failed':'स्कैन विफल','Start walking':'चलना शुरू करें','Start':'शुरू करें','Preview walk':'वॉक का प्रीव्यू','Turn-by-turn & access details':'मोड़-दर-मोड़ और पहुँच की जानकारी','On this route (tap to jump)':'इस रास्ते पर (दबाकर देखें)','Potholes only show if mapped or reported (🕳 button). Traffic = busy roads beside the route.':'गड्ढे तभी दिखते हैं जब नक्शे पर हों या रिपोर्ट हुए हों (🕳 बटन)। ट्रैफिक = रास्ते के पास की व्यस्त सड़कें।','avoid if you can':'हो सके तो बचें','from start':'शुरुआत से',
+'Heavy traffic':'भारी ट्रैफिक','Moderate traffic':'मध्यम ट्रैफिक','Light traffic':'हल्का ट्रैफिक','Moderate':'मध्यम','Clear':'खाली','Live traffic (TomTom)':'लाइव ट्रैफिक (TomTom)','Estimated for':'अनुमानित, समय','from road type':'सड़क के प्रकार से','Enable live traffic':'लाइव ट्रैफिक चालू करें','Open walking route in Google Maps ↗':'Google Maps में पैदल रास्ता खोलें ↗','See live traffic on Google Maps ↗':'Google Maps पर लाइव ट्रैफिक देखें ↗',
+'Starting…':'शुरू हो रहा है…','Off route':'रास्ते से हटे','You are off the route.':'आप रास्ते से हट गए हैं।','Recalculate':'दोबारा गणना','Navigation started.':'नेविगेशन शुरू हुआ।','You have arrived at':'आप पहुँच गए:','You have arrived':'आप पहुँच गए','End':'समाप्त','Tell someone I arrived safely':'किसी को बताएँ कि मैं सुरक्षित पहुँचा','Done':'हो गया','Cannot read your location':'आपकी लोकेशन नहीं मिल रही','Make a U-turn':'यू-टर्न लें',
+'In India, call 112 for emergency police, fire or medical assistance. NAV-AID will not call or send your location unless you choose an action below.':'भारत में पुलिस, दमकल या चिकित्सा आपातकाल के लिए 112 पर कॉल करें। आप नीचे कोई विकल्प चुनें तभी NAV-AID कॉल या लोकेशन भेजेगा।','Call 112':'112 पर कॉल करें','Share my current location':'मेरी मौजूदा लोकेशन भेजें',
+'What is here?':'यहाँ क्या है?','Add photo (optional)':'फ़ोटो जोड़ें (वैकल्पिक)','Pothole':'गड्ढा','Broken pavement':'टूटा फुटपाथ','No ramp':'रैंप नहीं','Blocked path':'रास्ता बंद','Construction':'निर्माण कार्य','Open drain':'खुली नाली','Still there':'अब भी है','Fixed':'ठीक हो गया','confirmed':'पुष्टि','fixed':'ठीक','Reported':'रिपोर्ट','Saving…':'सहेज रहे हैं…','Hazard reported. Everyone using NAV-AID will see it.':'खतरा रिपोर्ट हुआ। NAV-AID के सभी उपयोगकर्ता इसे देखेंगे।','Hazard saved on this device. Future routes will avoid it.':'खतरा इस डिवाइस पर सहेजा गया। आगे के रास्ते इससे बचेंगे।','Tap the map where the hazard is':'नक्शे पर खतरे की जगह दबाएँ',
+'NAV-AID quick support':'NAV-AID त्वरित सहायता','Hi. What do you need help with?':'नमस्ते। आपको किस चीज़ में मदद चाहिए?','Accessible route':'सुलभ रास्ता','Nearby access details':'पास की पहुँच जानकारी','Accessible toilets':'सुलभ शौचालय','Send':'भेजें','Ask NAV-AID quick help':'NAV-AID से पूछें'
+};
+const HIRULES=[
+ [/Turn (slightly )?left/g,(m,s)=>(s?'थोड़ा ':'')+'बाएं मुड़ें'],[/Turn (slightly )?right/g,(m,s)=>(s?'थोड़ा ':'')+'दाएं मुड़ें'],
+ [/Continue straight( on )?/g,'सीधे चलें '],[/ onto /g,' → '],
+ [/\bin (\d+) (?:m|metres)\b/g,'$1 मी. आगे'],
+ [/(\d+) h (\d+) min\b/g,'$1 घंटा $2 मिनट'],[/(\d+(?:\.\d+)?) km\b/g,'$1 कि.मी.'],[/(\d+) min\b/g,'$1 मिनट'],[/(\d+) m\b/g,'$1 मी.']
+];
+let hiRe=null;
+function trs(s){
+ if(LANG!=='hi'||!s)return s;
+ if(!hiRe)hiRe=new RegExp('(?<![A-Za-z])(?:'+Object.keys(HI).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?![A-Za-z])','g');
+ for(const [re,f] of HIRULES)s=s.replace(re,f);
+ return s.replace(hiRe,m=>HI[m]);
+}
+function trNode(n){
+ if(n.nodeType===3){const v=n.nodeValue;if(v&&v.trim()){const t=trs(v);if(t!==v)n.nodeValue=t}}
+ else if(n.nodeType===1){
+  if(/^(SCRIPT|STYLE)$/.test(n.tagName))return;
+  for(const a of ['placeholder','aria-label','title']){const v=n.getAttribute(a);if(v){const t=trs(v);if(t!==v)n.setAttribute(a,t)}}
+  n.childNodes.forEach(trNode);
+ }
+}
 
 /* ---------- categories (everything shown by default) ---------- */
 const CATS={
@@ -219,8 +260,10 @@ function showNote(){
 setTimeout(()=>{if(!tOk)showNote()},9000);
 const G={route:L.layerGroup().addTo(map),all:L.layerGroup().addTo(map),pins:L.layerGroup().addTo(map),rep:L.layerGroup().addTo(map)};
 let meMarker=null;
+/* map stays clean: markers, chips and reports appear only after a place or route is searched */
+function syncActive(){const a=!!(S.place||S.routeMode);document.body.classList.toggle('active',a);if(a)map.addLayer(G.rep);else map.removeLayer(G.rep)}
 const S={from:null,to:null,place:null,routes:[],sel:0,viewEls:[],fetched:null,busy:false,nav:null,reporting:false,routeMode:false};
-const icon=c=>L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:'<div class="mk" style="background:#df2029">'+symbol(c)+'</div>'});
+const icon=c=>L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,15],html:'<div class="mk" style="background:'+(CATS[c]?CATS[c].c:'#C8102E')+'">'+symbol(c)+'</div>'});
 const pin=(ll,t,col)=>L.marker(ll,{icon:L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:`<div class="mk" style="background:${col};width:34px;height:34px;font-weight:700">${t}</div>`})});
 
 /* ---------- helpers ---------- */
@@ -280,7 +323,7 @@ function openSupportChat(){
 }
 const QUICK=[['SRM Institute, Ghaziabad','🎓'],['New Delhi Railway Station','🚉'],['India Gate, New Delhi','🏛'],['Connaught Place, New Delhi','🛍'],['AIIMS, New Delhi','🏥'],['Noida Sector 18','🏙'],['Lucknow Charbagh Railway Station','🚉'],['Taj Mahal, Agra','🕌'],['Varanasi Ghats','🛕'],['Prayagraj Sangam','🌊']];
 function showHome(){
- S.place=null;S.routeMode=false;
+ S.place=null;S.routeMode=false;G.all.clearLayers();S.viewEls=[];S.fetched=null;syncActive();
  openSheet(`<h2>Explore Delhi and Uttar Pradesh</h2><p class="sub">Search for any place in India, or tap one below. Zoom in to see steps, slopes, crossings and hazards.</p><p class="sub"><b>Route profiles:</b> wheelchair, walking aid, blind/low vision, deaf/hard of hearing, sensory needs, limited stamina, and temporary injury.</p><div class="btns"><button class="btn alt" id="homeHelp">💬 Support chat</button><button class="btn red" id="homeSOS">🆘 Emergency SOS</button></div><div class="ct">${QUICK.map(([q,i])=>`<button class="qp" data-q="${esc(q)}">${i} ${esc(q.split(',')[0])}</button>`).join('')}</div>`);
  $('#sheet').classList.add('home');
  $('#homeHelp').onclick=openSupportChat;$('#homeSOS').onclick=openSOSPanel;
@@ -460,7 +503,55 @@ function costOf(h){
   default:return 0;
  }
 }
-const reportsAsEls=()=>store.get('navaid_reports',[]).map(r=>({cat:'report',m:'Reported: '+r.type,pts:[[r.lat,r.lon]],line:false,tags:{}}));
+/* ---------- shared hazard reports (Supabase). Fill these two in after following SETUP.md; empty = reports stay on this device ---------- */
+const SB_URL='',SB_KEY='';
+const cloudOn=()=>!!(SB_URL&&SB_KEY),sbH=()=>({apikey:SB_KEY,Authorization:'Bearer '+SB_KEY});
+const CLOUDR=new Map();let lastCloud=0;
+async function cloudLoad(s,w,n,e){
+ if(!cloudOn())return;
+ try{const r=await fetch(`${SB_URL}/rest/v1/reports?select=*&lat=gte.${s}&lat=lte.${n}&lon=gte.${w}&lon=lte.${e}&order=created_at.desc&limit=500`,{headers:sbH()});
+  if(r.ok)(await r.json()).forEach(x=>CLOUDR.set(x.id,x))}catch(e){}
+}
+async function cloudAdd(rep){
+ const r=await fetch(SB_URL+'/rest/v1/reports',{method:'POST',headers:{...sbH(),'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(rep)});
+ if(!r.ok)throw new Error('HTTP '+r.status);
+ const x=(await r.json())[0];if(x)CLOUDR.set(x.id,x);return x;
+}
+async function cloudVote(id,fld){
+ const r=await fetch(SB_URL+'/rest/v1/rpc/vote_report',{method:'POST',headers:{...sbH(),'Content-Type':'application/json'},body:JSON.stringify({rid:id,fld})});
+ if(!r.ok)throw new Error('HTTP '+r.status);
+}
+async function cloudPhoto(blob){
+ const name=Date.now()+'-'+Math.random().toString(36).slice(2)+'.jpg';
+ const r=await fetch(`${SB_URL}/storage/v1/object/reports/${name}`,{method:'POST',headers:{...sbH(),'Content-Type':'image/jpeg'},body:blob});
+ if(!r.ok)throw new Error('HTTP '+r.status);
+ return `${SB_URL}/storage/v1/object/public/reports/${name}`;
+}
+function resizeImage(file,max){
+ return new Promise(res=>{const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>res(b),'image/jpeg',.72)};
+  img.onerror=()=>res(null);img.src=u});
+}
+const blobToDataURL=b=>new Promise(res=>{const f=new FileReader();f.onload=()=>res(f.result);f.onerror=()=>res(null);f.readAsDataURL(b)});
+async function saveReport(ll,type,blob){
+ let saved=false;
+ if(cloudOn()){try{const url=blob?await cloudPhoto(blob):null;saved=!!(await cloudAdd({lat:ll.lat,lon:ll.lng,type,photo_url:url}))}catch(e){}}
+ if(!saved){
+  const rec={lat:ll.lat,lon:ll.lng,type,ts:Date.now()};
+  if(blob){const t=await resizeImage(blob,320);if(t)rec.photo=await blobToDataURL(t)}
+  const rs=store.get('navaid_reports',[]);rs.push(rec);store.set('navaid_reports',rs);
+ }
+ return saved;
+}
+const allReports=()=>[...store.get('navaid_reports',[]),...[...CLOUDR.values()].filter(r=>!((r.fixed||0)>=2&&(r.fixed||0)>(r.confirms||0)))];
+const reportsAsEls=()=>allReports().map(r=>({cat:'report',m:'Reported: '+r.type,pts:[[r.lat,r.lon]],line:false,tags:{}}));
+function refreshReports(){drawReports();S.viewEls=S.viewEls.filter(h=>h.cat!=='report').concat(reportsAsEls());drawView()}
+async function cloudLoadView(b){if(!cloudOn())return;const p=b.pad(.25);await cloudLoad(p.getSouth(),p.getWest(),p.getNorth(),p.getEast());if(!S.routeMode)refreshReports()}
+async function cloudLoadRoute(mine){
+ if(!cloudOn())return;let s=90,w=180,n=-90,e=-180;
+ mine.forEach(r=>r.dense.forEach(p=>{s=Math.min(s,p[0]);n=Math.max(n,p[0]);w=Math.min(w,p[1]);e=Math.max(e,p[1])}));
+ await cloudLoad(s-.002,w-.002,n+.002,e+.002);
+}
 
 /* viewport layer */
 function drawView(){
@@ -476,8 +567,10 @@ let vt,viewSeq=0;
 async function loadView(force){
  if(S.routeMode)return;
  const hint=$('#zoomHint');
+ if(!S.place){G.all.clearLayers();S.viewEls=[];S.fetched=null;hint.style.display='none';return}
  if(map.getZoom()<15){hint.classList.remove('loading');hint.textContent='Zoom in closer to see mapped access symbols';hint.style.display='block';return}
  hint.style.display='none';const b=map.getBounds();
+ if(cloudOn()&&Date.now()-lastCloud>4000){lastCloud=Date.now();cloudLoadView(b)}
  if(!force&&S.fetched&&S.fetched.contains(b))return;
  if(activeOverpass&&!force)return;
  if(activeOverpass&&force)activeOverpass.abort();
@@ -499,7 +592,7 @@ $$('.chip').forEach(c=>c.onclick=()=>{const g=c.dataset.g;if(hiddenG.has(g)){hid
 
 /* ---------- place sheet ---------- */
 function showPlace(p){
- S.place=p;S.routeMode=false;G.route.clearLayers();G.all.clearLayers();S.routes=[];S.viewEls=[];S.fetched=null;viewSeq++;if(activeOverpass)activeOverpass.abort();
+ S.place=p;S.routeMode=false;syncActive();G.route.clearLayers();G.all.clearLayers();S.routes=[];S.viewEls=[];S.fetched=null;viewSeq++;if(activeOverpass)activeOverpass.abort();
  G.pins.clearLayers();pin(p.ll,'📍','#C8102E').addTo(G.pins);
  map.setView(p.ll,17);
  placeShell();setTimeout(()=>loadView(true),300);
@@ -537,7 +630,7 @@ function startDirections(dest){
 function modeBar(){return `<div class="modes" role="group" aria-label="Who is travelling">${Object.entries(MODES).map(([k,m])=>`<button class="mode" data-m="${k}" aria-pressed="${k===mode}">${m.n}</button>`).join('')}</div>`}
 function bindModes(){$$('.mode').forEach(b=>b.onclick=()=>{mode=b.dataset.m;P=MODES[mode].p;store.set('navaid_mode',mode);$$('.mode').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===mode));S.routes=[];maybeRoute()})}
 $('#qd').onclick=()=>startDirections(S.place);
-$('#dirClose').onclick=()=>{document.body.classList.remove('dir');S.routeMode=false;G.route.clearLayers();S.routes=[];if(S.place)placeShell();else showHome();loadView(true)};
+$('#dirClose').onclick=()=>{document.body.classList.remove('dir');S.routeMode=false;G.route.clearLayers();G.pins.clearLayers();S.routes=[];syncActive();if(S.place)placeShell();else showHome();loadView(true)};
 $('#swap').onclick=()=>{[S.from,S.to]=[S.to,S.from];$('#from').value=S.from?S.from.name.split(',')[0]:'';$('#to').value=S.to?S.to.name.split(',')[0]:'';maybeRoute()};
 $('#fromLoc').onclick=()=>locate(p=>{S.from={ll:p,name:'My location'};$('#from').value='My location';maybeRoute()},()=>toast('Location blocked'));
 function locate(ok,fail){
@@ -588,7 +681,7 @@ function match(route,els){
  let lastT=-999;return out.filter(o=>{if(o.h.cat!=='traffic')return true;if(o.idx-lastT<15)return false;lastT=o.idx;return true});
 }
 async function getRoutes(){
- if(S.busy)return;S.busy=true;S.routeMode=true;S.noFit=false;G.all.clearLayers();if(activeOverpass)activeOverpass.abort();
+ if(S.busy)return;S.busy=true;S.routeMode=true;syncActive();S.noFit=false;G.all.clearLayers();if(activeOverpass)activeOverpass.abort();
  openSheet(modeBar()+'<p class="sub" role="status">Finding routes and checking every metre for hazards… (can take up to 20 s on slow map servers)</p>');bindModes();
  try{
   const a=S.from.ll,b=S.to.ll;
@@ -606,7 +699,7 @@ async function getRoutes(){
   const mine=routes.slice(0,total>10000?2:5);S.routes=mine;S.sel=0;S.noFit=false;S.scan='scanning';viewSeq++;
   S.warn='Route ready. Scanning for hazards along it; markers appear as they load.';
   renderRoutes();S.noFit=true;
-  scanRoutes(mine,gap);
+  scanRoutes(mine,gap);liveTraffic(mine);
  }catch(e){openSheet(modeBar()+`<p class="err">${esc(e.message)}</p>`);bindModes()}
  S.busy=false;
 }
@@ -627,7 +720,7 @@ async function scanRoutes(mine,gap){
  {const o=[];let i=0,j=chunks.length-1;while(i<=j){o.push(chunks[i++]);if(i<=j)o.push(chunks[j--])}chunks.splice(0,chunks.length,...o)}
  const alive=()=>S.routes===mine,t0=Date.now(),late=()=>Date.now()-t0>1500000;
  const found=new Map();
- const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);r.tl=trafficLevels(r,els);scoreRoute(r)})};
+ const apply=()=>{const els=[...found.values()].map(classify).filter(Boolean).concat(reportsAsEls());mine.forEach(r=>{r.matched=match(r,els);r.tl=trafficLevels(r,els);if(r.live)r.tl=r.tl.map((x,i)=>r.live[i]>=0?r.live[i]:x);scoreRoute(r)})};
  const each=data=>{for(const el of data||[])found.set(el.type+'/'+el.id,el)};
  let label='';
  each.progress=(d,t)=>{if(!alive())return false;S.warn=`Scanning ${S.osmMode?'via OpenStreetMap API, Overpass is down':label} (${d}/${t} sections)…`;apply();renderRoutes();return !late()};
@@ -641,6 +734,7 @@ async function scanRoutes(mine,gap){
   if(res.ok===0||late())break;
  }
  try{(await fetchNotes(mine)).forEach(n=>found.set('note/'+n.id,n))}catch(e){}
+ try{await cloudLoadRoute(mine)}catch(e){}
  const allFail=tot.ok===0;if(allFail&&!tot.err)tot.err='Scan took too long';
  S.scan=allFail?'failed':'done';apply();mine.sort((x,y)=>x.cost-y.cost);S.sel=0;
  const retry='<button class="btn alt" id="rescan" style="padding:6px 14px;margin-left:6px">Retry scan</button>';
@@ -655,12 +749,20 @@ async function scanRoutes(mine,gap){
    Estimated from road class in OpenStreetMap, not live data:
    0 = clear (teal, unchanged), 1 = moderate (orange: secondary roads), 2 = heavy (red: trunk/primary roads) */
 const TCOL=['#0E7C86','#F29900','#D93025'];
+/* time-of-day estimate: rush hours Mon-Sat 8-11:30 and 17-21 are heaviest, nights are clear */
+function baseLevel(hw){
+ const d=new Date(),h=d.getHours()+d.getMinutes()/60,workday=d.getDay()!==0;
+ const L0=/^(trunk|primary)$/.test(hw)?2:hw==='secondary'?1:0;
+ if(h>=22||h<6)return 0;
+ if(workday&&((h>=8&&h<11.5)||(h>=17&&h<21)))return L0;
+ return Math.max(0,L0-1);
+}
 function trafficLevels(route,els){
  const n=route.dense.length,lv=new Array(n).fill(0),grid=new Map();
  route.dense.forEach((p,i)=>{const [a,b]=cell(p),k=a+','+b;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
  for(const h of els){
   if(h.cat!=='traffic'||h.note)continue;
-  const hw=h.tags&&h.tags.highway,L=/^(trunk|primary)$/.test(hw||'')?2:hw==='secondary'?1:0;
+  const hw=h.tags&&h.tags.highway,L=baseLevel(hw||'');
   if(!L||!h.line)continue;
   for(const p of densify(h.pts,10)){
    const [a,b]=cell(p);
@@ -674,12 +776,56 @@ function trafficLevels(route,els){
  for(let i=1;i<n-1;i++)if(lv[i]<lv[i-1]&&lv[i-1]===lv[i+1])lv[i]=lv[i-1];
  return lv;
 }
+/* live traffic: TomTom Traffic Flow, sampled about every 350 m along each route (needs a free API key) */
+const ttKey=()=>store.get('navaid_ttkey','');
+const ttCache={};
+async function ttSample(key,p){
+ const k=p[0].toFixed(3)+','+p[1].toFixed(3),c=ttCache[k];if(c&&Date.now()-c.t<120000)return c.v;
+ try{
+  const x=await fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key=${encodeURIComponent(key)}&point=${p[0].toFixed(5)},${p[1].toFixed(5)}&unit=KMPH`);
+  if(x.status===401||x.status===403)throw new Error('key');
+  if(!x.ok)return -1;
+  const j=(await x.json()).flowSegmentData;if(!j||!(j.freeFlowSpeed>15))return -1;
+  const q=j.currentSpeed/j.freeFlowSpeed,v=q<.5?2:q<.8?1:0;ttCache[k]={t:Date.now(),v};return v;
+ }catch(e){if(e.message==='key')throw e;return -1}
+}
+async function liveTraffic(mine){
+ const key=ttKey();if(!key)return;
+ try{
+  for(const r of mine.slice(0,3)){
+   const idxs=[];let next=0;r.dense.forEach((p,i)=>{if(r.cum[i]>=next){idxs.push(i);next=r.cum[i]+350}});
+   const pick=idxs.slice(0,30),vals=[];
+   for(let a=0;a<pick.length;a+=4)vals.push(...await Promise.all(pick.slice(a,a+4).map(i=>ttSample(key,r.dense[i]))));
+   const live=new Array(r.dense.length).fill(-1);
+   pick.forEach((i,k)=>{if(vals[k]<0)return;for(let j=0;j<live.length;j++)if(Math.abs(r.cum[j]-r.cum[i])<=175)live[j]=vals[k]});
+   if(live.every(v=>v<0))continue;
+   r.live=live;r.liveOn=true;r.tl=(r.tl||new Array(r.dense.length).fill(0)).map((x,i)=>live[i]>=0?live[i]:x);
+  }
+  if(S.routes===mine&&mine.some(r=>r.liveOn))renderRoutes();
+ }catch(e){if(e.message==='key'){store.set('navaid_ttkey','');toast('TomTom key was rejected. Live traffic is off.')}}
+}
 function trafficShare(r){
  if(!r.tl)return null;const s=[0,0,0];
  for(let i=1;i<r.dense.length;i++)s[r.tl[i]]+=r.cum[i]-r.cum[i-1];
  return s;
 }
-function counts(r){const c={};r.matched.forEach(m=>{if(!GOOD.has(m.h.cat)&&m.h.cat!=='traffic')c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
+/* what to show on the route: only things on the path, worst first, one marker per ~40 m (good items like ramps/lifts kept separately) */
+function shownOf(r){
+ if(r._sm===r.matched&&r._sh)return r._sh;
+ const ok=r.matched.filter(m=>{const c=m.h.cat;
+  if(c==='traffic'||c==='calm'||c==='wcNo'||c==='transit')return false;
+  if(c==='barrier'&&m.cost<150)return false;
+  if(c==='surf'&&m.cost<200)return false;
+  if(c==='narrow'&&m.cost<200)return false;
+  return m.distance<=(c==='report'||c==='pothole'?40:30)});
+ const kept=[],good=[];
+ ok.slice().sort((a,b)=>b.cost-a.cost).forEach(m=>{
+  const set=GOOD.has(m.h.cat)?good:kept;
+  if(!set.some(k=>Math.abs(r.cum[k.idx]-r.cum[m.idx])<40))set.push(m);
+ });
+ r._sm=r.matched;r._sh=kept.concat(good).sort((a,b)=>a.idx-b.idx);return r._sh;
+}
+function counts(r){const c={};shownOf(r).forEach(m=>{if(!GOOD.has(m.h.cat))c[m.h.cat]=(c[m.h.cat]||0)+1});return c}
 function renderRoutes(){
  const rs=S.routes,r=rs[S.sel],sh=rs.find(x=>x.shortest);
  let h=modeBar();
@@ -689,28 +835,30 @@ function renderRoutes(){
  h+=rs.map((x,i)=>{const c=counts(x),l=Object.entries(c).map(([k,n])=>`${CATS[k].i} ${n}`).join('  ')||(x.matched.length?'No route hazards tagged':S.scan==='failed'?'Access scan failed':S.scan==='scanning'?'Scanning…':'No access data tagged');
   return `<button class="rc" data-i="${i}" aria-pressed="${i===S.sel}"><span class="sc">${rs.every(y=>y.matched.length===0)?'—':x.score}</span>${i===0?`<span class="tag">${rs.every(y=>y.matched.length===0)?'Suggested route':'Most accessible'}</span>`:''}${x.shortest?'<span class="tag g">Shortest</span>':''}<br>${(()=>{const s=trafficShare(x);if(!s||!x.dist)return '';const hv=Math.round(100*s[2]/x.dist),md=Math.round(100*s[1]/x.dist);return `<b style="font-size:1.1rem">${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub" style="font-weight:700;color:${hv>=15?TCOL[2]:md>=15?'#B25E00':TCOL[0]}">${hv>=15?'Heavy traffic '+hv+'%':md>=15?'Moderate traffic '+md+'%':'Light traffic'}</span><br><span class="sub">${l}</span></button>`})()||`<br><b>${mins(x.dist)}</b> · ${km(x.dist)}<br><span class="sub">${l}</span></button>`}`}).join('');
  if(sh&&sh!==rs[0])h+=`<p class="sub">Most accessible is ${km(rs[0].dist-sh.dist)} longer than the shortest and avoids ${Math.max(0,sh.matched.filter(m=>m.cost>=150).length-rs[0].matched.filter(m=>m.cost>=150).length)} serious obstacle(s).</p>`;
- h+='<div class="sub" style="margin:6px 0"><span style="color:'+TCOL[2]+'">━</span> Heavy traffic &nbsp;<span style="color:'+TCOL[1]+'">━</span> Moderate &nbsp;<span style="color:'+TCOL[0]+'">━</span> Clear <small>(estimated from road type)</small></div>';
+ h+='<div class="sub" style="margin:6px 0"><span style="color:'+TCOL[2]+'">━</span> Heavy traffic &nbsp;<span style="color:'+TCOL[1]+'">━</span> Moderate &nbsp;<span style="color:'+TCOL[0]+'">━</span> Clear <small>('+(r.liveOn?'Live traffic (TomTom)':'Estimated for '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+' from road type')+')</small>'+(ttKey()?'':' <button class="btn alt" id="ttKey" style="padding:4px 12px;font-size:13px">Enable live traffic</button>')+'</div>';
  h+=routeSummary(r);
  h+='<div class="btns"><button class="btn" id="goNav">Start</button><button class="btn alt" id="goSim">Preview walk</button></div>';
  const gUrl='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(S.from.ll.join(','))+'&destination='+encodeURIComponent(S.to.ll.join(','))+'&travelmode=walking';
  h+='<a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="'+gUrl+'">Open walking route in Google Maps ↗</a>';
  {const mp=r.dense[Math.floor(r.dense.length/2)];h+='<a class="btn alt" style="display:inline-block;text-decoration:none;margin-top:8px" target="_blank" rel="noopener" href="https://www.google.com/maps/@'+mp[0].toFixed(5)+','+mp[1].toFixed(5)+',14z/data=!5m1!1e1">See live traffic on Google Maps ↗</a>'}
  h+='<h3 style="margin:6px 0 0">Turn-by-turn &amp; access details</h3><ul class="l">';
- const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(r.matched.filter(m=>m.h.cat!=='traffic').map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
+ const events=r.steps.map((s,i)=>({idx:s.idx,icon:String(i+1),text:s.text,obstacle:null})).concat(shownOf(r).map(m=>({idx:m.idx,icon:CATS[m.h.cat].i,text:m.h.m,obstacle:m}))).sort((a,b)=>a.idx-b.idx);
  h+=events.length?events.map(e=>'<li><span>'+e.icon+'</span><span><b>'+km(r.cum[e.idx])+'</b> '+esc(e.text)+(e.obstacle&&!GOOD.has(e.obstacle.h.cat)&&e.obstacle.cost>=250?' <b style="color:var(--bad)">avoid if you can</b>':'')+'</span></li>').join(''):'<li>No route steps are available.</li>';
  openSheet(h);bindModes();
  $$('.rc').forEach(b=>b.onclick=()=>{S.sel=+b.dataset.i;renderRoutes()});
- if($('#rescan'))$('#rescan').onclick=()=>{S.routes=[];maybeRoute()};bindSummary(r);$('#goNav').onclick=()=>startNav(false);$('#goSim').onclick=()=>startNav(true);
+ if($('#rescan'))$('#rescan').onclick=()=>{S.routes=[];maybeRoute()};
+ if($('#ttKey'))$('#ttKey').onclick=()=>{const k=prompt('Paste your free TomTom API key (get one at developer.tomtom.com)');if(k&&k.trim()){store.set('navaid_ttkey',k.trim());S.routes=[];maybeRoute()}};
+ bindSummary(r);$('#goNav').onclick=()=>startNav(false);$('#goSim').onclick=()=>startNav(true);
  drawRoute();
 }
 function routeSummary(r){
  const g={};GROUPS.forEach(([n])=>g[n]=0);
- r.matched.forEach(m=>{const n=CATS[m.h.cat].g;if(n in g)g[n]++});
+ shownOf(r).forEach(m=>{const n=CATS[m.h.cat].g;if(n in g)g[n]++});
  return '<h3 style="margin:10px 0 2px">On this route (tap to jump)</h3><div class="ct">'+GROUPS.map(([n,k])=>`<button class="qp" data-rg="${n}" ${g[n]?'':'disabled'} style="opacity:${g[n]?1:.5}"><span class="chip-sym">${symbol(k)}</span> <b>${g[n]}</b> ${n}</button>`).join('')+'</div><p class="sub">Potholes only show if mapped or reported (🕳 button). Traffic = busy roads beside the route.</p>';
 }
 function bindSummary(r){
  $$('[data-rg]').forEach(b=>b.onclick=()=>{
-  const m=r.matched.find(x=>CATS[x.h.cat].g===b.dataset.rg);if(!m)return;
+  const m=shownOf(r).find(x=>CATS[x.h.cat].g===b.dataset.rg);if(!m)return;
   const p=m.h.pts[m.hidx??0]||m.h.pts[0];
   if(hiddenG.has(b.dataset.rg)){hiddenG.delete(b.dataset.rg);$$('.chip').forEach(c=>{if(c.dataset.g===b.dataset.rg)c.setAttribute('aria-pressed','true')});drawRoute(false)}
   map.setView(p,18);L.popup().setLatLng(p).setContent('<b>'+CATS[m.h.cat].t+'</b><br>'+esc(m.h.m)+'<br>'+km(r.cum[m.idx])+' from start').openOn(map);
@@ -725,7 +873,7 @@ function drawRoute(fit=true){
  const line=L.polyline(r.dense,{color:TCOL[0],weight:7,opacity:0}).addTo(G.route);
  if(r.tl){let s=0;for(let i=1;i<=r.dense.length;i++){if(i===r.dense.length||r.tl[i]!==r.tl[s]){L.polyline(r.dense.slice(s,Math.min(i+1,r.dense.length)),{color:TCOL[r.tl[s]],weight:7,lineCap:'butt',lineJoin:'round',interactive:false}).addTo(G.route);s=i}}}
  else L.polyline(r.dense,{color:TCOL[0],weight:7,interactive:false}).addTo(G.route);
- r.matched.forEach(m=>{const h=m.h;if(h.cat==='traffic'||hiddenG.has(CATS[h.cat].g))return;
+ shownOf(r).forEach(m=>{const h=m.h;if(hiddenG.has(CATS[h.cat].g))return;
   if(h.line&&h.cat!=='traffic')L.polyline(h.pts,{color:CATS[h.cat].c,weight:6,opacity:.9,interactive:false}).addTo(G.route);
   const accessPoint=h.pts[m.hidx??Math.floor(h.pts.length/2)]||h.pts[0];L.marker(accessPoint,{icon:icon(h.cat),title:CATS[h.cat].t}).addTo(G.route).bindPopup('<b>'+CATS[h.cat].t+'</b><br>'+esc(h.m)+'<br>'+km(r.cum[m.idx])+' from start');
  });
@@ -734,7 +882,7 @@ function drawRoute(fit=true){
 
 /* ---------- navigation ---------- */
 let voiceOn=true,timer=null,watch=null;
-function speak(t){$('#live').textContent=t;if(voiceOn&&'speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))}}
+function speak(t){t=trs(t);$('#live').textContent=t;if(voiceOn&&'speechSynthesis' in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);if(LANG==='hi')u.lang='hi-IN';speechSynthesis.speak(u)}}
 function stopNav(){clearInterval(timer);timer=null;if(watch!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watch);watch=null}
 function startNav(sim){
  const r=S.routes[S.sel];r.steps.forEach(s=>s.idx=nearestIdx(r.dense,s.ll)[0]);
@@ -766,7 +914,7 @@ function tick(p){
  $('#nbT').textContent=`${nxt.text} in ${left} m`;
  const rem=r.dist-r.cum[N.cur];$('#rem').textContent=km(rem);$('#eta').textContent=mins(rem);
  if(N.said!==si){N.said=si;speak(`${nxt.text} in ${left} metres`)}
- r.matched.forEach((m,k)=>{
+ shownOf(r).forEach((m,k)=>{
   const ahead=r.cum[m.idx]-r.cum[N.cur];
   if(ahead>0&&ahead<45&&!N.alerted.has(k)&&!GOOD.has(m.h.cat)){N.alerted.add(k);const t=`${CATS[m.h.cat].t} in ${Math.round(ahead)} metres. ${m.h.m}`;
    const a=$('#nbA');a.style.display='block';a.textContent='⚠ '+t;speak(t);setTimeout(()=>{a.style.display='none'},7000)}
@@ -778,7 +926,7 @@ function arrive(){
  $('#nbT').textContent=t;$('#nbA').style.display='none';speak(t);
  openSheet(`<h2>${t}</h2><div class="btns"><button class="btn" id="share">Tell someone I arrived safely</button><button class="btn alt" id="done">Done</button></div>`);
  $('#share').onclick=()=>{const m='I arrived safely at '+short(S.to.name).split(',')[0]+' (NAV-AID).';if(navigator.share)navigator.share({text:m});else{navigator.clipboard?.writeText(m);$('#share').textContent='Message copied'}};
- $('#done').onclick=()=>{document.body.classList.remove('nav');S.routes=[];S.routeMode=false;G.route.clearLayers();closeSheet();loadView(true)};
+ $('#done').onclick=()=>{document.body.classList.remove('nav');S.routes=[];S.routeMode=false;G.route.clearLayers();G.pins.clearLayers();S.place=null;syncActive();closeSheet();showHome()};
 }
 
 /* ---------- report hazards ---------- */
@@ -788,15 +936,38 @@ $('#repBtn').onclick=()=>{S.reporting=!S.reporting;$('#repBtn').classList.toggle
 map.on('click',e=>{
  if(!S.reporting)return;S.reporting=false;$('#repBtn').classList.remove('on');
  const types=['Pothole','Broken pavement','No ramp','Blocked path','Construction','Open drain'];
- const pop=L.popup().setLatLng(e.latlng).setContent('<b>What is here?</b><br>'+types.map(t=>`<button class="btn" style="padding:6px 12px" data-t="${t}">${t}</button>`).join('')).openOn(map);
- pop.getElement().querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{
-  const rs=store.get('navaid_reports',[]);rs.push({lat:e.latlng.lat,lon:e.latlng.lng,type:b.dataset.t,ts:Date.now()});store.set('navaid_reports',rs);
-  map.closePopup();drawReports();S.viewEls=S.viewEls.filter(h=>h.cat!=='report').concat(reportsAsEls());drawView();toast('Hazard saved. Future routes will avoid it.');
+ let photo=null;
+ const pop=L.popup().setLatLng(e.latlng).setContent('<b>What is here?</b><label style="display:block;margin:6px 0;font-size:13px">📷 Add photo (optional)<input type="file" accept="image/*" capture="environment" id="repPhoto" style="width:100%;margin-top:4px"></label>'+types.map(t=>`<button class="btn" style="padding:6px 12px" data-t="${t}">${t}</button>`).join('')).openOn(map);
+ const el=pop.getElement();
+ el.querySelector('#repPhoto').onchange=async ev=>{const f=ev.target.files[0];photo=f?await resizeImage(f,800):null};
+ el.querySelectorAll('[data-t]').forEach(b=>b.onclick=async()=>{
+  const type=b.dataset.t;map.closePopup();toast('Saving…');
+  const shared=await saveReport(e.latlng,type,photo);
+  refreshReports();toast(shared?'Hazard reported. Everyone using NAV-AID will see it.':'Hazard saved on this device. Future routes will avoid it.');
  });
 });
-function drawReports(){G.rep.clearLayers();store.get('navaid_reports',[]).forEach(r=>L.marker([r.lat,r.lon],{icon:icon('report'),title:r.type}).addTo(G.rep).bindPopup('Reported: '+esc(r.type)+'<br>'+new Date(r.ts).toLocaleDateString()))}
+function reportPopup(r){
+ const ph=r.photo_url||r.photo;
+ return '<b>Reported: '+esc(r.type)+'</b><br>'+(ph?'<img src="'+esc(ph)+'" alt="Photo of the reported hazard" style="width:200px;max-width:100%;border-radius:8px;margin:6px 0;display:block">':'')+new Date(r.ts||r.created_at).toLocaleDateString()+(r.id?'<br>'+(r.confirms||0)+' confirmed · '+(r.fixed||0)+' fixed<br><button class="btn" style="padding:5px 12px" data-v="confirms">Still there</button><button class="btn alt" style="padding:5px 12px" data-v="fixed">Fixed</button>':'');
+}
+function drawReports(){
+ G.rep.clearLayers();
+ allReports().forEach(r=>{
+  const mk=L.marker([r.lat,r.lon],{icon:icon('report'),title:r.type}).addTo(G.rep).bindPopup(reportPopup(r));
+  if(r.id)mk.on('popupopen',ev=>ev.popup.getElement().querySelectorAll('[data-v]').forEach(b=>b.onclick=async()=>{
+   try{await cloudVote(r.id,b.dataset.v);r[b.dataset.v]=(r[b.dataset.v]||0)+1;map.closePopup();refreshReports();toast('Thanks, your update was shared.')}catch(e){toast('Could not send your update.')}
+  }));
+ });
+}
 drawReports();
 
+$('#langBtn').textContent=LANG==='hi'?'EN':'हि';
+$('#langBtn').onclick=()=>{store.set('navaid_lang',LANG==='hi'?'en':'hi');location.reload()};
+if(LANG==='hi'){
+ document.documentElement.lang='hi';
+ new MutationObserver(ms=>{for(const m of ms){if(m.type==='characterData')trNode(m.target);else m.addedNodes.forEach(trNode)}}).observe(document.body,{childList:true,subtree:true,characterData:true});
+ trNode(document.body);
+}
 /* ---------- home screen: open on your location, hazards visible ---------- */
 showHome();
 locate(p=>{if(p[0]>6&&p[0]<37.5&&p[1]>68&&p[1]<98)map.setView(p,16)},()=>{});
