@@ -261,7 +261,7 @@ setTimeout(()=>{if(!tOk)showNote()},9000);
 const G={route:L.layerGroup().addTo(map),all:L.layerGroup().addTo(map),pins:L.layerGroup().addTo(map),rep:L.layerGroup().addTo(map)};
 let meMarker=null;
 /* map stays clean: markers, chips and reports appear only after a place or route is searched */
-function syncActive(){const a=!!(S.place||S.routeMode);document.body.classList.toggle('active',a);if(a)map.addLayer(G.rep);else map.removeLayer(G.rep)}
+function syncActive(){const a=!!(S.place||S.routeMode);document.body.classList.toggle('active',a);if(a)map.addLayer(G.rep);else map.removeLayer(G.rep);drawReports()}
 const S={from:null,to:null,place:null,routes:[],sel:0,viewEls:[],fetched:null,busy:false,nav:null,reporting:false,routeMode:false};
 const icon=c=>L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,15],html:'<div class="mk" style="background:'+(CATS[c]?CATS[c].c:'#C8102E')+'">'+symbol(c)+'</div>'});
 const pin=(ll,t,col)=>L.marker(ll,{icon:L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],html:`<div class="mk" style="background:${col};width:34px;height:34px;font-weight:700">${t}</div>`})});
@@ -544,7 +544,13 @@ async function saveReport(ll,type,blob){
  return saved;
 }
 const allReports=()=>[...store.get('navaid_reports',[]),...[...CLOUDR.values()].filter(r=>!((r.fixed||0)>=2&&(r.fixed||0)>(r.confirms||0)))];
-const reportsAsEls=()=>allReports().map(r=>({cat:'report',m:'Reported: '+r.type,pts:[[r.lat,r.lon]],line:false,tags:{}}));
+const PLACE_R=450;
+/* only reports inside the searched area (450 m) or beside the searched route (60 m) are shown */
+function keepReport(r){
+ if(S.routeMode)return S.routes.some(rt=>rt.dense&&nearestIdx(rt.dense,[r.lat,r.lon])[1]<=60);
+ return !!S.place&&dist([r.lat,r.lon],S.place.ll)<=PLACE_R;
+}
+const reportsAsEls=()=>allReports().filter(keepReport).map(r=>({cat:'report',m:'Reported: '+r.type,pts:[[r.lat,r.lon]],line:false,tags:{}}));
 function refreshReports(){drawReports();S.viewEls=S.viewEls.filter(h=>h.cat!=='report').concat(reportsAsEls());drawView()}
 async function cloudLoadView(b){if(!cloudOn())return;const p=b.pad(.25);await cloudLoad(p.getSouth(),p.getWest(),p.getNorth(),p.getEast());if(!S.routeMode)refreshReports()}
 async function cloudLoadRoute(mine){
@@ -568,18 +574,17 @@ async function loadView(force){
  if(S.routeMode)return;
  const hint=$('#zoomHint');
  if(!S.place){G.all.clearLayers();S.viewEls=[];S.fetched=null;hint.style.display='none';return}
- if(map.getZoom()<15){hint.classList.remove('loading');hint.textContent='Zoom in closer to see mapped access symbols';hint.style.display='block';return}
- hint.style.display='none';const b=map.getBounds();
+ hint.style.display='none';const b=L.latLng(S.place.ll).toBounds(PLACE_R*2);
  if(cloudOn()&&Date.now()-lastCloud>4000){lastCloud=Date.now();cloudLoadView(b)}
- if(!force&&S.fetched&&S.fetched.contains(b))return;
+ if(!force&&S.fetched)return;
  if(activeOverpass&&!force)return;
  if(activeOverpass&&force)activeOverpass.abort();
- const seq=++viewSeq,pb=b.pad(.25),box=`(${pb.getSouth().toFixed(5)},${pb.getWest().toFixed(5)},${pb.getNorth().toFixed(5)},${pb.getEast().toFixed(5)})`;
+ const seq=++viewSeq,pb=b,box=`(${pb.getSouth().toFixed(5)},${pb.getWest().toFixed(5)},${pb.getNorth().toFixed(5)},${pb.getEast().toFixed(5)})`;
  hint.textContent='Loading map symbols…';hint.classList.add('loading');hint.style.display='block';
  try{
   const els=await fetchArea(box,EXTRA(box));
   if(seq!==viewSeq||S.routeMode)return;
-  S.viewEls=els.map(classify).filter(Boolean).concat(reportsAsEls());S.fetched=pb;drawView();hint.classList.remove('loading');hint.style.display='none';
+  S.viewEls=els.map(classify).filter(Boolean).filter(h=>dist(h.pts[0],S.place.ll)<=PLACE_R).concat(reportsAsEls());S.fetched=pb;drawView();hint.classList.remove('loading');hint.style.display='none';
   if(S.place)placeSummary();
  }catch(e){
   if(seq!==viewSeq)return;
@@ -865,7 +870,7 @@ function bindSummary(r){
  });
 }
 function drawRoute(fit=true){
- G.route.clearLayers();G.pins.clearLayers();
+ G.route.clearLayers();G.pins.clearLayers();drawReports();
  pin(S.from.ll,'A','#10243A').addTo(G.pins);pin(S.to.ll,'B','#6A3DE8').addTo(G.pins);
  S.routes.forEach((r,i)=>{if(i!==S.sel)L.polyline(r.dense,{color:'#6B7F92',weight:6,opacity:.6,dashArray:'6 8'}).addTo(G.route).on('click',()=>{S.sel=i;renderRoutes()})});
  const r=S.routes[S.sel];
@@ -952,7 +957,7 @@ function reportPopup(r){
 }
 function drawReports(){
  G.rep.clearLayers();
- allReports().forEach(r=>{
+ allReports().filter(keepReport).forEach(r=>{
   const mk=L.marker([r.lat,r.lon],{icon:icon('report'),title:r.type}).addTo(G.rep).bindPopup(reportPopup(r));
   if(r.id)mk.on('popupopen',ev=>ev.popup.getElement().querySelectorAll('[data-v]').forEach(b=>b.onclick=async()=>{
    try{await cloudVote(r.id,b.dataset.v);r[b.dataset.v]=(r[b.dataset.v]||0)+1;map.closePopup();refreshReports();toast('Thanks, your update was shared.')}catch(e){toast('Could not send your update.')}
